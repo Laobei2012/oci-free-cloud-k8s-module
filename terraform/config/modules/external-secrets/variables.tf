@@ -18,3 +18,13 @@ variable "tenancy_id" {
   type        = string
   description = "The OCID of the tenancy"
 }
+
+variable "region" {
+  type        = string
+  description = "OCI region"
+}
+
+variable "email" {
+  type        = string
+  description = "Email of the OCI user for external secrets"
+}

@@ -1,0 +1,11 @@
+# Copy this file to terraform.tfvars and set your values. Git ignores *.tfvars.
+compartment_id = "ocid1.tenancy.oc1..xxxxxxxx"
+tenancy_id     = "ocid1.tenancy.oc1..xxxxxxxx"
+
+# Optional. The values below are the defaults.
+# region                       = "eu-frankfurt-1"
+# ssh_public_key               = "ssh-rsa AAAA... user@host"
+# kubernetes_worker_nodes      = 2
+# node_memory_in_gbs           = 24
+# node_ocpus                   = 4
+# node_boot_volume_size_in_gbs = 100

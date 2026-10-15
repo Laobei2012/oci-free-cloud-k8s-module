@@ -28,3 +28,24 @@ variable "kubernetes_worker_nodes" {
 
   default = 2
 }
+
+variable "node_memory_in_gbs" {
+  description = "Memory per worker node in GB"
+  type        = number
+
+  default = 24
+}
+
+variable "node_ocpus" {
+  description = "OCPUs per worker node"
+  type        = number
+
+  default = 4
+}
+
+variable "node_boot_volume_size_in_gbs" {
+  description = "Boot volume size per worker node in GB"
+  type        = number
+
+  default = 100
+}

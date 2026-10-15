@@ -39,14 +39,6 @@ variable "github_app_pem" {
   default     = ""
 }
 
-variable "git_url" {
-  description = "Git repository URL"
-  type        = string
-  nullable    = false
-
-  default = "https://github.com/nce/oci-free-cloud-k8s.git"
-}
-
 variable "flux_version" {
   description = "Flux version semver range"
   type        = string
@@ -57,4 +49,14 @@ variable "flux_registry" {
   description = "Flux distribution registry"
   type        = string
   default     = "ghcr.io/fluxcd"
+}
+
+variable "cluster_domain" {
+  type        = string
+  description = "Base domain of the cluster"
+}
+
+variable "lb_security_group_id" {
+  type        = string
+  description = "OCID of the network security group for the loadbalancers"
 }

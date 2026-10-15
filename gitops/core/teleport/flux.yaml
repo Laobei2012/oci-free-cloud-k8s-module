@@ -17,6 +17,8 @@ spec:
     substituteFrom:
       - kind: ConfigMap
         name: cluster-vars
+      - kind: ConfigMap
+        name: cluster-vars-terraform
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization

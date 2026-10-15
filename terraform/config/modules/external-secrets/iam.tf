@@ -8,7 +8,7 @@ resource "oci_identity_user" "external_secrets" {
   compartment_id = var.compartment_id
   description    = "ExternalSecrets"
   name           = "ExternalSecrets"
-  email          = "770135+nce@users.noreply.github.com"
+  email          = var.email
 }
 
 resource "tls_private_key" "external_secrets" {

@@ -1,0 +1,25 @@
+# Copy this file to terraform.tfvars and set your values. Git ignores *.tfvars.
+compartment_id = "ocid1.tenancy.oc1..xxxxxxxx"
+tenancy_id     = "ocid1.tenancy.oc1..xxxxxxxx"
+vault_id       = "ocid1.vault.oc1.xxx.xxxxxxxx"
+
+# Outputs of terraform/infra
+node_pool_id     = "ocid1.nodepool.oc1.xxx.xxxxxxxx"
+public_subnet_id = "ocid1.subnet.oc1.xxx.xxxxxxxx"
+
+gh_token                   = "github_pat_xxxxxxxx"
+github_app_id              = "123456"
+github_app_installation_id = "12345678"
+github_app_pem             = <<EOT
+-----BEGIN RSA PRIVATE KEY-----
+...
+-----END RSA PRIVATE KEY-----
+EOT
+
+# Optional. The values below are the defaults.
+# region         = "eu-frankfurt-1"
+# vault_key_id   = "ocid1.key.oc1.xxx.xxxxxxxx"
+# cluster_domain = "nce.wtf" # must match cluster_domain in gitops/core/cluster-vars.yaml
+# email          = "770135+nce@users.noreply.github.com"
+# gh_org         = "nce"
+# gh_repository  = "oci-free-cloud-k8s"

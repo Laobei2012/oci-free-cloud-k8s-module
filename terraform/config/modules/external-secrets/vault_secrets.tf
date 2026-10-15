@@ -47,7 +47,7 @@ spec:
       vault: ${var.vault_id}
       compartment: ${var.compartment_id}
       encryptionKey: ${coalesce(var.vault_key_id, data.oci_kms_keys.external_secrets_key.keys[0].id)}
-      region: eu-frankfurt-1
+      region: ${var.region}
       auth:
         user: ${oci_identity_user.external_secrets.id}
         tenancy: ${var.tenancy_id}

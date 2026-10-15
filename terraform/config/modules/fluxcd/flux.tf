@@ -55,11 +55,24 @@ instance:
     - image-reflector-controller
   sync:
     kind: GitRepository
-    url: ${var.git_url}
+    url: https://github.com/${var.gh_org}/${var.gh_repository}.git
     path: gitops/core
     ref: "refs/heads/main"
     provider: github
     pullSecret: flux-instance-config
 YAML
   ]
+}
+
+# Values that only Terraform knows. Flux puts them into the manifests with
+# post build substitution, together with gitops/core/cluster-vars.yaml.
+resource "kubernetes_config_map" "cluster_vars_terraform" {
+  metadata {
+    name      = "cluster-vars-terraform"
+    namespace = kubernetes_namespace.flux_system.id
+  }
+
+  data = {
+    lb_security_group_id = var.lb_security_group_id
+  }
 }

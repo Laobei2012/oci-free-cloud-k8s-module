@@ -56,3 +56,31 @@ variable "github_app_pem" {
   sensitive   = true
   type        = string
 }
+
+variable "cluster_domain" {
+  type        = string
+  description = "Base domain of the cluster. Must match cluster_domain in gitops/core/cluster-vars.yaml"
+
+  default = "nce.wtf"
+}
+
+variable "email" {
+  type        = string
+  description = "Email of the OCI user for external secrets"
+
+  default = "770135+nce@users.noreply.github.com"
+}
+
+variable "gh_org" {
+  type        = string
+  description = "GitHub owner of the repository that Flux syncs"
+
+  default = "nce"
+}
+
+variable "gh_repository" {
+  type        = string
+  description = "GitHub repository that Flux syncs"
+
+  default = "oci-free-cloud-k8s"
+}

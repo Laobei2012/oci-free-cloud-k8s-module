@@ -5,6 +5,8 @@ module "externalsecrets" {
   tenancy_id     = var.tenancy_id
   vault_id       = var.vault_id
   vault_key_id   = var.vault_key_id
+  region         = var.region
+  email          = var.email
 
   depends_on = [
     module.fluxcd
@@ -14,6 +16,10 @@ module "externalsecrets" {
 module "fluxcd" {
   source = "./modules/fluxcd"
 
+  gh_org                     = var.gh_org
+  gh_repository              = var.gh_repository
+  cluster_domain             = var.cluster_domain
+  lb_security_group_id       = module.ingress.lb_security_group_id
   gh_token                   = var.gh_token
   compartment_id             = var.compartment_id
   github_app_id              = var.github_app_id

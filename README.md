@@ -116,11 +116,10 @@ terraform in [infra](terraform/infra/)
 These components are independent from each other, but obv. the infra should
 be created first.
 
-For the config part, you need to add a private `*.tfvars` file:
-```
-compartment_id   = "ocid1.tenancy.zzz"
-... # this list is currently not complete; there's more to add
-```
+Each folder needs a private `terraform.tfvars` file. Copy
+[infra/terraform.tfvars.example](terraform/infra/terraform.tfvars.example) and
+[config/terraform.tfvars.example](terraform/config/terraform.tfvars.example)
+and set your values.
 
 Running the `config` section you need more variables, which either get output
 by the `infra`-run or have to be extracted from the webui.
@@ -176,8 +175,10 @@ section to the according branch.
 ### Site-specific values
 All values that differ between clusters are in one file,
 [gitops/core/cluster-vars.yaml](gitops/core/cluster-vars.yaml): the domain,
-the GitHub organization, the loadbalancer securitygroup and so on.
-Flux replaces `${name}` in the manifests with the values from this file
+the GitHub organization, the OCI region and so on. Terraform writes the values that
+only it knows, like the loadbalancer securitygroup, into the ConfigMap
+`cluster-vars-terraform`.
+Flux replaces `${name}` in the manifests with the values from both ConfigMaps
 ([post build substitution][flux-substitution]).
 
 If you fork this repo, change the values in this file and nothing else in `gitops/`.
@@ -252,7 +253,9 @@ annotating the Service. Using envoy, we have to add the annotations on an
 `EnvoyProxy` CR. Unfortunately the value for the sg is created via terraform,
 but is later needed on the object. In the past i used to write it in a configmap,
 and helm was able to use the CM as value.yaml and annotated the resource.
-This is now no longer possible, therefore the sg is currently hardcoded.
+This is now no longer possible. Instead, terraform writes the id into the
+ConfigMap `cluster-vars-terraform` in `flux-system`, and flux puts it on the
+`EnvoyProxy` and the teleport service with post build substitution.
 
 [pr]: https://github.com/nce/oci-free-cloud-k8s/pull/152
 [gatewayapi]: https://gateway-api.sigs.k8s.io/
