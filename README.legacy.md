@@ -1,6 +1,11 @@
 # ⎈ Oracle Cloud Kubernetes free tier setup
 
 > [!NOTE]
+> This is the README of the original repository, before the split into modules.
+> It keeps the background notes and the upgrade history. [README.md](README.md)
+> describes the current layout and setup.
+
+> [!NOTE]
 > **Free Tier Change: 06.2026**
 >
 > Oracle changed the free-tier specs. Free Tier Users with no Credit Card have the
