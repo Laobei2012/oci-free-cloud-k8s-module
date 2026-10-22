@@ -1,0 +1,9 @@
+# The Flux entry point of the live repository. The FluxInstance from the module
+# cluster (modules/fluxcd) syncs gitops/clusters/oci, so use that path.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flux-system
+resources:
+  - cluster-vars.yaml
+  - platform-source.yaml
+  - platform.yaml

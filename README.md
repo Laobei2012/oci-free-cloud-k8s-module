@@ -67,10 +67,17 @@ This repo hosts my personal stuff and is a playground for my kubernetes tooling.
 - [x] Grafana with Dex Login
    * Dashboards for Flux
    * [ ] Switch to Grafana Operator
-- [ ] Loki for log aggregation
+- [x] Loki for log aggregation
+   * single binary on an account B node, 20Gi `longhorn-account-b` volume, 14 days of retention
+   * an Alloy DaemonSet sends the container logs of each node
+   * Grafana has the datasource `Loki`
 - [x] Metrics Server for cpu/mem usage overview
 - [ ] Kyverno and Image Signing
-- [x] [S3 Proxy](https://github.com/oxyno-zeta/s3-proxy) for http access of buckets
+- [ ] One Slack bot token for Flux and Alertmanager
+   * both read the token from one Vault key, for example `slack-bot-token`
+   * Alertmanager posts with `chat.postMessage` to `${alertmanager_slack_channel_id}` from cluster-vars
+   * invite the bot to `#monitoring`, then send a test alert to make sure that it arrives
+   * then remove `SLACK_API_URL` from Vault and the incoming webhook from the Slack app
 
 # :keyboard: Setup
 > [!Note]
@@ -97,7 +104,7 @@ With the bucket created we can configure the `~/.oci/config`:
 user=ocid1.user.xxx
 fingerprint=ee:f4:xxx
 tenancy=ocid1.tenancy.oc1.xxx
-region=eu-frankfurt-1
+region=us-phoenix-1
 key_file=/Users/xxxx.pem
 
 [default]
@@ -105,13 +112,22 @@ aws_access_key_id = xxx <- this needs to be created via UI: User -> customer sec
 aws_secret_access_key = xxx <- this needs to be created via UI: User -> customer secret key
 
 ```
-Refer to my [backend config](./terraform/infra/_terraform.tf) for the terraform s3 configuration.
+Refer to the [backend config example](./examples/terraform/account-a/backend.hcl.example) for the terraform s3 configuration.
 
-## 🏗️ Terraform Layout
-* The infrastructure (everything to an usable k8s-api endpoint) is managed by
-terraform in [infra](terraform/infra/)
-* The k8s-modules (OCI specific config for secrets etc.) are managed by terraform in [config](terraform/config/)
-* The k8s apps/config is done with flux; see below
+## 🏗️ Repository Layout
+This repository holds the reusable code. Your own values and the Terraform runs are in a
+second, private "live" repository. The live repository pins this repository to one release tag.
+
+* [terraform/modules](terraform/modules/): the modules `account-a` (network, peering, OKE cluster,
+  node pool A), `account-b` (network, peering, worker nodes in account B), `cluster` (everything that
+  needs the Kubernetes API, for example Flux and external-secrets), and `github-oidc`.
+* [examples/terraform](examples/terraform/): one root module for each stack. Copy each one to the
+  live repository as `terraform/accounts/a`, `terraform/accounts/b` and `terraform/clusters/oci`, and
+  change the module `source` to
+  `git::https://github.com/Laobei2012/oci-free-cloud-k8s-module.git//terraform/modules/<name>?ref=<tag>`.
+  The instructions below use these live folder names.
+* [gitops](gitops/): the Flux apps. [examples/gitops](examples/gitops/) has the Flux entry point of the
+  live repository, see below.
 
 These components are independent from each other, but obv. the infra should
 be created first.
@@ -131,16 +147,151 @@ by the `infra`-run or have to be extracted from the webui.
 > initial deployment of `external secrets` with flux. This is expected.
 > Just rerun terraform after external secrets is successfully deployed.
 
+## Worker nodes from a second account
+A second free tier account (account B) adds 2 more `VM.Standard.A1.Flex`
+worker nodes to the cluster. Account A hosts the OKE cluster in
+`us-phoenix-1`. Account B runs the nodes in its home region `us-chicago-1`.
+Terraform in `terraform/accounts/b` of the live repository manages account B,
+with the module [account-b](terraform/modules/account-b/).
+
+> [!WARNING]
+> Oracle does not support this setup. The nodes join with the standard
+> kubelet TLS bootstrap and a bootstrap token, not with the OKE node join.
+> An OKE change can stop it at any time.
+
+The setup has these parts:
+
+* A remote peering connection connects the two VCNs. Account A is the
+  requestor, account B admits it with an IAM policy.
+* The nodes run Oracle Linux 9 with cri-o and a kubelet from `pkgs.k8s.io`.
+  The kubelet version matches the cluster version.
+* The kubelet uses the private API endpoint of the cluster.
+* The nodes have the label `tenancy=account-b`. They are not load balancer
+  backends, so Envoy does not run on them. See
+  [Gateway API - Loadbalancer setup](#gateway-api---loadbalancer-setup).
+* Longhorn has two pools, because synchronous replicas across regions are
+  too slow. The StorageClass `longhorn` uses the OKE nodes. The
+  StorageClass `longhorn-account-b` uses the account B nodes. A volume of
+  `longhorn-account-b` holds approximately 25 GB of data at most.
+* The account B nodes set the label `node.longhorn.io/create-default-disk`
+  and the Longhorn tag `pool-b` on themselves. Longhorn does not put
+  replicas of volumes without a node selector on nodes with a tag. So the
+  volumes of the OKE nodes stay in account A.
+* Pods that use a volume of `longhorn-account-b` run only in the zones of
+  account B.
+* Pods that use a volume of the StorageClass `longhorn` run only in the
+  zones of account A. The StorageClass lists these zones in
+  `allowedTopologies`, and Longhorn copies them into the node affinity of
+  each new PV. If account A gets a new zone, add it in
+  `gitops/infrastructure/longhorn/helm.yaml`.
+* The OKE `csi-oci-node` pod runs on these nodes. But OCI block volumes of
+  the StorageClasses `oci` and `oci-bv` cannot attach to them, because the
+  instances are not in account A. This has no effect on Longhorn.
+
+Prerequisites:
+
+* An OCI CLI profile for account B in `~/.oci/config`. The default is
+  `ACCOUNT_B` with an API key, which does not expire. A session token from
+  `oci session authenticate` expires after 24 hours at most. Set
+  `oci_config_profile` and `oci_auth` in the tfvars for a different profile.
+* The `DEFAULT` profile is account A, which holds the state bucket.
+* The OCID of the account A group that runs terraform, for example
+  `Administrators`.
+* Account A is subscribed to the region `us-chicago-1`. The requestor of a
+  remote peering must be subscribed to the region of the acceptor. You
+  cannot remove a region subscription again.
+
+Do these steps in this order:
+
+1. Add `account_b_tenancy_id` to the tfvars of `terraform/accounts/a`.
+2. Run `terraform apply` in `terraform/accounts/a`. This creates the DRG, the
+   peering connection of account A and the IAM policy.
+3. Add a tfvars file to `terraform/accounts/b`:
+   ```
+   tenancy_id           = "ocid1.tenancy.oc1..accountb"
+   compartment_id       = "ocid1.tenancy.oc1..accountb"
+   account_a_tenancy_id = "ocid1.tenancy.oc1..accounta"
+   account_a_group_id   = "ocid1.group.oc1..accounta"
+   ssh_public_key       = "ssh-rsa AAAA..."
+   ```
+4. Run `terraform init` and `terraform apply` in `terraform/accounts/b`.
+5. Set `account_b_rpc_id` in the tfvars of `terraform/accounts/a` to the output
+   `rpc_id` of `terraform/accounts/b`.
+6. Run `terraform apply` in `terraform/accounts/a`. The output
+   `account_b_peering_status` must be `PEERED`.
+7. Wait approximately 10 minutes and run `kubectl get nodes -l tenancy=account-b`.
+8. Make sure that the serving certificates of the nodes are approved. The API
+   server needs them for `kubectl logs`, `kubectl exec` and metrics-server:
+   ```
+   ❯ kubectl get csr --field-selector spec.signerName=kubernetes.io/kubelet-serving
+   ```
+
+The app `gitops/infrastructure/kubelet-csr-approver` approves the serving certificates
+of the account B nodes. It also approves the new requests before a
+certificate expires. It approves only node names and IPs in `10.1.1.0/24`.
+If a request stays `Pending`, read it and approve it manually:
+```
+❯ kubectl get csr <csr-name> -o jsonpath='{.spec.request}' | base64 -d | openssl req -noout -text
+❯ kubectl certificate approve <csr-name>
+```
+
+The nodes start in step 4, but they can only join after step 6. Until then,
+the kubelet tries to connect again.
+
+If `account_b_peering_status` is `INVALID`, make sure that account A is
+subscribed to `us-chicago-1`. Then run this command in `terraform/accounts/a`:
+```
+❯ terraform apply -replace=oci_core_remote_peering_connection.account_b
+```
+
+If you upgrade the cluster version, replace the account B nodes one at a
+time. Terraform ignores changes to the image and the user data, so you
+must replace the nodes manually:
+```
+❯ kubectl drain --ignore-daemonsets --delete-emptydir-data <node-ip>
+❯ kubectl delete node <node-ip>
+❯ terraform apply -replace='oci_core_instance.node[0]'
+```
+Then do step 8 for the new node.
+
+If the account B nodes hold replicas of `longhorn-account-b` volumes, do
+these steps before you replace the next node:
+
+1. Make sure that all volumes are `healthy`:
+   ```
+   ❯ kubectl -n longhorn get volumes.longhorn.io
+   ```
+2. Make sure that the new node has the tag `pool-b`:
+   ```
+   ❯ kubectl -n longhorn get nodes.longhorn.io <node-ip> -o jsonpath='{.spec.tags}'
+   ```
+3. Remove the Longhorn node of the old instance. Longhorn deletes it when
+   scheduling is off:
+   ```
+   ❯ kubectl -n longhorn patch nodes.longhorn.io <old-node-ip> --type merge -p '{"spec":{"allowScheduling":false}}'
+   ```
+
 ## Kubernets Access - kubeconfig
-After running terraform in the [infra](./terraform/infra) folder, a kubeconfig file
+After running terraform in the [accounts/a](./examples/terraform/account-a) folder, a kubeconfig file
 should be created in the terraform folder called `.kube.config`.
 This can be used to access the cluster.
 For a more regulated access, see the Teleport section below.
 
-The terraform resources in the [config](./terraform/config) folder will rely on the kubeconfig.
+The terraform resources in the [clusters/oci](./examples/terraform/cluster) folder will rely on the kubeconfig.
 
 ## FluxCD
 Most resources and core components of the k8s cluster are provisioned with fluxcd.
+Flux syncs `gitops/clusters/oci` of the live repository. Copy
+[examples/gitops/clusters/example](./examples/gitops/clusters/example) there. It adds the
+`GitRepository` `platform` for this repository, and the `Kustomization` `platform` that
+applies [gitops/platform](./gitops/platform) with these folders:
+
+- [infrastructure](./gitops/infrastructure): ingress, certificates, DNS, secrets, storage, access, and Flux add-ons
+- [monitoring](./gitops/monitoring): metrics, logs, dashboards, and cost exporters
+- [tools](./gitops/tools): CI and other tools that run on the platform
+
+Each app folder has a `flux.yaml` with its own Flux `Kustomization`.
+
 Therefore we need a Github Personal acccess Token (`pat` - fine grained) in your repo.
 ```
 # github permission scope for the token:
@@ -152,8 +303,42 @@ webhooks - read, write
 * Place this token in a private tfvars. This is used to
 generate the fluxcd webhook url, which triggers fluxcd reconciliation after each
 commit
-* Place this token in the oci vault (`github-fluxcd-token`). This allows fluxcd
+* Place this token in the oci vault (`fluxcd-github-token`). This allows fluxcd
 to annotate the github commit status, depending on the state of the `Kustomization`.
+
+### Slack notifications
+Two components post to Slack, and each one uses a different Slack credential.
+
+Flux sends error events to a Slack channel through a Slack app. Error events
+come from GitRepositories, Kustomizations, HelmReleases and HelmCharts. To set
+it up, do these steps:
+
+1. Create a Slack app at https://api.slack.com/apps ("From scratch").
+2. In "OAuth & Permissions", add the bot scope `chat:write`.
+3. Install the app in the workspace, and copy the "Bot User OAuth Token" (`xoxb-...`).
+4. Put the token in the oci vault as `fluxcd-slack-webhook`.
+5. In the Slack channel, type `/invite @<app name>`.
+6. Put the channel ID in `flux_slack_channel_id` in [cluster-vars](./examples/gitops/clusters/example/cluster-vars.yaml).
+
+To find the channel ID, open the channel details in Slack. The ID is at the
+bottom of the "About" tab, for example `C0123456789`. If you skip step 5, Slack
+refuses the messages with `not_in_channel`.
+
+Alertmanager sends the Prometheus alerts to `#monitoring` through a Slack
+incoming webhook (a URL that posts to one channel). Put the webhook URL in the
+oci vault as `SLACK_API_URL`.
+
+### PagerDuty notifications
+Alertmanager also sends alerts with `severity=critical` to PagerDuty. These
+alerts still go to Slack. To set it up, do these steps:
+
+1. In PagerDuty, open the service, and add an "Events API V2" integration.
+2. Copy the "Integration Key" (the routing key).
+3. Put the key in the oci vault as `PAGERDUTY_ROUTING_KEY`.
+
+If a Vault secret is missing, the `ExternalSecretNotReady` alert fires after
+15 minutes. To make sure that Flux can post, read the logs of the
+`notification-controller` in `flux-system`, and look for `failed to dispatch`.
 
 ### Fluxcd Operator
 Migrating from the `flux bootstrap` method to the flux-operator might be tricky.
@@ -183,7 +368,7 @@ I've now switched to Cloudflare (also to mitigate costs of a few cents).
 
 The Teleport <-> K8s Role (`k8s/system:masters`) is created by the teleport
 operator (see the `fluxcd-addons/Kustomization`). The SSO setup is created with
-[fluxcd](./gitops/core/teleport/rbac).
+[fluxcd](./gitops/infrastructure/teleport/rbac).
 
 ### ~Login via local User~ - removed
 I've removed local users in teleport and am using SSO with github as idP.
@@ -199,13 +384,13 @@ kubernetes.
 ❯ k --kubeconfig ~/.kube/oci.kubeconfig exec -n teleport -ti deployment/teleport-cluster-auth -- tctl users reset nce
 
 # login to teleport
-❯ tsh login --proxy teleport.nce.wtf:443 --auth=local --user nce teleport.nce.wt
+❯ tsh login --proxy teleport.<cluster_domain>:443 --auth=local --user nce teleport.<cluster_domain>
 ```
 
 ### Login via Github
 There's no user management in teleport, so no reset, or 2FA setup is needed.
 ```
-❯ tsh login --proxy teleport.nce.wtf:443 --auth=github-acme --user nce teleport.nce.wtf
+❯ tsh login --proxy teleport.<cluster_domain>:443 --auth=github-acme --user nce teleport.<cluster_domain>
 
 # login to the k8s cluster
 ❯ tsh kube login oci
@@ -242,6 +427,17 @@ annotating the Service. Using envoy, we have to add the annotations on an
 but is later needed on the object. In the past i used to write it in a configmap,
 and helm was able to use the CM as value.yaml and annotated the resource.
 This is now no longer possible, therefore the sg is currently hardcoded.
+
+The Envoy service uses `externalTrafficPolicy: Local`. The load balancer
+sends traffic only to its backend nodes that run an Envoy pod. If no backend
+node runs an Envoy pod, all backends fail the health check. HTTPS connections
+then get a reset during the TLS handshake. The `EnvoyProxy` CR prevents this:
+
+* Envoy runs only on nodes without the label
+  `node.kubernetes.io/exclude-from-external-load-balancers`. These nodes are
+  the load balancer backends.
+* Envoy has 2 replicas, which prefer different nodes. If one node is down, the
+  other backend still serves traffic.
 
 [pr]: https://github.com/nce/oci-free-cloud-k8s/pull/152
 [gatewayapi]: https://gateway-api.sigs.k8s.io/
@@ -281,6 +477,7 @@ A collection of relevant upstream documentation for reference
 * [Webhook Config][flux-webhook]
 * [Webhook Url Hashing][flux-webhook-hashing]
 * [FluxCD Operator][flux-operator-migration]
+* [Slack Provider][flux-slack-provider]
 
 [lb-annotations]: https://github.com/oracle/oci-cloud-controller-manager/blob/master/docs/load-balancer-annotations.md
 [nginx-helm-lb-annotations]: https://github.com/kubernetes/ingress-nginx/blob/74ce7b057e8d4ac96d2e11e027930397e5f70010/charts/ingress-nginx/templates/controller-service.yaml#L7
@@ -302,13 +499,14 @@ A collection of relevant upstream documentation for reference
 [flux-webhook]: https://fluxcd.io/flux/guides/webhook-receivers/
 [flux-webhook-hashing]: https://github.com/fluxcd/notification-controller/issues/1067
 [flux-operator-migration]: https://fluxcd.control-plane.io/operator/flux-bootstrap-migration/
+[flux-slack-provider]: https://fluxcd.io/flux/components/notification/providers/#slack
 
 # Upgrading the Kubernetes Version
 ## Automatic Upgrading
 Upgrading the nodepool and the controlplane is done by running terraform in the
-infra folder now. It'll suggest the highest possible k8s version and start the
+accounts/a folder now. It'll suggest the highest possible k8s version and start the
 controlplane update.
-After the successful update we run [cycleNode.sh](./terraform/infra/cycleNodes.sh) to
+After the successful update we run [cycleNode.sh](./terraform/modules/account-a/cycleNodes.sh) to
 remove one worker, add a new one, wait for longhorn volume sync, and remove the next.
 
 ## Manual Upgrading
@@ -320,7 +518,7 @@ before updating the nodepool.
 
 [k8s-skew]: https://kubernetes.io/releases/version-skew-policy/#kubelet
 
-The commands should be executed inside [terraform/infra/](terraform/infra)
+The commands should be executed inside `terraform/accounts/a` of the live repository
 ```
 # get new cluster versions
 ❯ oci ce cluster get --cluster-id $(terraform output --raw k8s_cluster_id) | jq -r '.data."available-kubernetes-upgrades"'
@@ -332,6 +530,8 @@ The commands should be executed inside [terraform/infra/](terraform/infra)
 # this shouldn't roll the nodes and might take around 10mins
 ❯ terraform apply
 ```
+If the apply fails with `open ../../.kube.config: permission denied`, Terraform must write a new kubeconfig.
+The file is read-only (`file_permission = 0400`). Run `chmod 600 ../../.kube.config`, then run `terraform apply` again.
  To roll the nodes, i cordon & drain the k8s node:
 ```
 ❯ k drain <k8s-node-name> --force --ignore-daemonsets --delete-emptydir-data

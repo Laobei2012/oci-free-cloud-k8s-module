@@ -8,7 +8,7 @@
   "terraform": {},
   "flux": {
     "managerFilePatterns": [
-      "/helm.yaml$/"
+      "/^gitops/.+\\.ya?ml$/"
     ]
   },
   "groupName": "all",
