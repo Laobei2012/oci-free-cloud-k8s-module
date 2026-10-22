@@ -15,6 +15,12 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
+  # The auth pod waits for its Longhorn volume, so an upgrade times out while
+  # Longhorn is not ready. Without retries, the HelmRelease then stalls until
+  # its spec changes.
+  upgrade:
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: teleport-cluster
