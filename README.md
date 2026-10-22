@@ -19,14 +19,20 @@ notes and the history of Kubernetes upgrades.
 
 | Part | Content |
 | --- | --- |
-| Account A | The OKE cluster in `us-phoenix-1`, and a node pool of two `VM.Standard.A1.Flex` nodes |
-| Account B | Two more `VM.Standard.A1.Flex` nodes in `us-chicago-1`. They join the cluster through a remote peering connection. |
+| Account A | The OKE cluster in the home region of account A, and a node pool of two `VM.Standard.A1.Flex` nodes |
+| Account B | Two more `VM.Standard.A1.Flex` nodes in the home region of account B. They join the cluster through a VCN peering. |
 | Ingress | envoy-gateway with Gateway API on the free layer 7 load balancer. Teleport uses the free layer 4 load balancer. |
 | Login | Dex with GitHub as the identity provider. `HTTPRoute` objects use OIDC through envoy-gateway. |
 | GitOps | The Flux operator. A GitHub webhook starts a sync, and Flux writes the commit status to GitHub. |
 | Storage | Longhorn, with one pool in each account |
 
 All nodes are arm64. The free tier has no free x86 instances.
+
+The two accounts can use any home region. The free tier resources are only
+in the home region of an account. If the two home regions are the same, the
+VCNs peer with local peering gateways (LPG). If the regions are different,
+the VCNs peer with remote peering connections (RPC) on a dynamic routing
+gateway (DRG).
 
 Oracle changed the free tier in June 2026. An account without a credit card
 gets half of the resources. A pay-as-you-go account still gets 4 OCPUs and
@@ -77,9 +83,11 @@ the live repository.
 - A domain in Cloudflare, for cert-manager and external-dns
 - A GitHub organization, a GitHub App for Flux, and OAuth apps for Dex and Teleport
 
-Account A must subscribe to the region `us-chicago-1`, because the requestor
-of a remote peering must subscribe to the region of the acceptor. You cannot
-remove a region subscription again.
+If the home regions of the two accounts are different, account A must
+subscribe to the home region of account B. The requestor of a remote peering
+must subscribe to the region of the acceptor. You cannot remove a region
+subscription again. If the home regions are the same, you do not need a
+subscription.
 
 ## Set up a live repository
 
@@ -109,10 +117,22 @@ The stack `accounts/a` writes the kubeconfig to `terraform/.kube.config`. The
 other two stacks use this file. The file has no credentials, because the `oci`
 CLI makes the token.
 
+Set `region` and `account_b_region` in `accounts/a`, and `region` and
+`account_a_region` in `accounts/b`. The modules compare the two regions and
+select LPG or RPC.
+
 The peering of the two accounts needs two runs of `accounts/a`. The first run
-makes the requestor in account A. Then `accounts/b` makes the acceptor and
-outputs `rpc_id`. Set `account_b_rpc_id` in `accounts/a` to this value, and
-apply `accounts/a` again. The output `account_b_peering_status` must be `PEERED`.
+makes the requestor in account A. Then `accounts/b` makes the acceptor. It
+outputs `rpc_id` if the regions are different, or `lpg_id` if they are the
+same. Set `account_b_rpc_id` or `account_b_lpg_id` in `accounts/a` to this
+value, and apply `accounts/a` again. The output `account_b_peering_status`
+must be `PEERED`.
+
+The stacks `accounts/a` and `accounts/b` also output `zone_prefix`. Set these
+values as `oci_zone_prefix_a` and `oci_zone_prefix_b` in `cluster-vars.yaml`.
+Longhorn uses the zones to keep the volumes of each account on its own nodes.
+If the two regions are the same, the account B zones get the suffix `-B`, for
+example `PHX-B-AD-1`.
 
 The module `cluster` installs the Flux operator. Flux then syncs
 `gitops/clusters/oci` of the live repository. If the first apply of

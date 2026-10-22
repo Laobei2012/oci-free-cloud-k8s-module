@@ -11,11 +11,11 @@ module "vcn" {
   create_internet_gateway = false
   create_nat_gateway      = true
   create_service_gateway  = false
-  attached_drg_id         = oci_core_drg_attachment.k8s_b_vcn.drg_id
+  attached_drg_id         = local.same_region ? null : oci_core_drg_attachment.k8s_b_vcn[0].drg_id
   nat_gateway_route_rules = [{
     destination       = var.account_a_vcn_cidr
     destination_type  = "CIDR_BLOCK"
-    network_entity_id = "drg"
+    network_entity_id = local.account_a_route_target
     description       = "k8s cluster in account A"
   }]
 }

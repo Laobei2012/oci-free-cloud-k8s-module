@@ -25,7 +25,6 @@ variable "account_a_auth" {
 variable "account_a_region" {
   description = "Home region of account A, where the terraform state bucket is"
   type        = string
-  default     = "us-phoenix-1"
 }
 
 variable "tenancy_id" {
@@ -41,7 +40,6 @@ variable "compartment_id" {
 variable "region" {
   description = "Home region of account B"
   type        = string
-  default     = "us-chicago-1"
 }
 
 variable "ssh_public_key" {

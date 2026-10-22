@@ -26,4 +26,10 @@ data:
   lb_ip: 203.0.113.10
   lb_security_group_id: ocid1.networksecuritygroup.oc1.phx.example
   oci_region: us-phoenix-1
+  # The zones of the nodes are <prefix>-AD-1 to -AD-3. Copy the output
+  # zone_prefix of terraform/accounts/a and terraform/accounts/b.
+  oci_zone_prefix_a: PHX
+  oci_zone_prefix_b: ORD
+  # Each alert carries this name as the label cluster.
+  cluster_name: oci-phx
   oci_object_storage_namespace: examplenamespace

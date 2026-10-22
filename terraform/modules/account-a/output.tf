@@ -28,5 +28,13 @@ output "k8s_cluster_ca" {
 }
 
 output "account_b_peering_status" {
-  value = oci_core_remote_peering_connection.account_b.peering_status
+  value = local.same_region ? oci_core_local_peering_gateway.account_b[0].peering_status : oci_core_remote_peering_connection.account_b[0].peering_status
 }
+
+# the zones of the OKE nodes are <zone_prefix>-AD-1 to -AD-3.
+# set as oci_zone_prefix_a in cluster-vars
+output "zone_prefix" {
+  value = one([for r in data.oci_identity_regions.all.regions : r.key if r.name == var.region])
+}
+
+data "oci_identity_regions" "all" {}

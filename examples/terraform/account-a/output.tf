@@ -30,3 +30,8 @@ output "k8s_cluster_ca" {
 output "account_b_peering_status" {
   value = module.account_a.account_b_peering_status
 }
+
+# set as oci_zone_prefix_a in cluster-vars
+output "zone_prefix" {
+  value = module.account_a.zone_prefix
+}

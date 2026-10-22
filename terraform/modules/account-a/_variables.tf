@@ -63,13 +63,18 @@ variable "account_b_tenancy_id" {
 }
 
 variable "account_b_region" {
-  description = "Home region of account B"
+  description = "Home region of account B. If it is the same as region, the VCNs peer with local peering gateways, else with remote peering connections"
   type        = string
-  default     = "us-chicago-1"
 }
 
 variable "account_b_rpc_id" {
-  description = "RPC OCID of account B (output rpc_id of the module account-b). Null until account B exists"
+  description = "RPC OCID of account B (output rpc_id of the module account-b). Null until account B exists. Only used if account_b_region is not region"
+  type        = string
+  default     = null
+}
+
+variable "account_b_lpg_id" {
+  description = "LPG OCID of account B (output lpg_id of the module account-b). Null until account B exists. Only used if account_b_region is region"
   type        = string
   default     = null
 }

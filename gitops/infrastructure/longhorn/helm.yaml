@@ -62,9 +62,9 @@ spec:
                     - matchLabelExpressions:
                         - key: topology.kubernetes.io/zone
                           values:
-                            - PHX-AD-1
-                            - PHX-AD-2
-                            - PHX-AD-3
+                            - ${oci_zone_prefix_a}-AD-1
+                            - ${oci_zone_prefix_a}-AD-2
+                            - ${oci_zone_prefix_a}-AD-3
   values:
     global:
       imageRegistry: docker.io

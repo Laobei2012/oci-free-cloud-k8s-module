@@ -17,5 +17,6 @@ module "account_a" {
   account_b_tenancy_id         = var.account_b_tenancy_id
   account_b_region             = var.account_b_region
   account_b_rpc_id             = var.account_b_rpc_id
+  account_b_lpg_id             = var.account_b_lpg_id
   account_b_vcn_cidr           = var.account_b_vcn_cidr
 }

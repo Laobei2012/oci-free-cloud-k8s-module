@@ -4,6 +4,9 @@ locals {
   k8s_minor = join(".", slice(split(".", local.k8s_version), 0, 2))
   # OKE labels its nodes with the region key, e.g. phx and PHX-AD-1
   region_key = one([for r in data.oci_identity_regions.all.regions : r.key if r.name == var.region])
+  # in the same region as account A, the zones get a -B suffix, e.g. PHX-B-AD-1.
+  # Longhorn keeps the volumes of each account in its zones, see gitops/infrastructure/longhorn
+  zone_prefix = local.same_region ? "${local.region_key}-B" : local.region_key
 }
 
 data "oci_identity_regions" "all" {}
@@ -54,7 +57,7 @@ resource "oci_core_instance" "node" {
       cluster_ca      = var.k8s_cluster_ca
       bootstrap_token = "${random_string.token_id.result}.${random_string.token_secret.result}"
       topology_region = lower(local.region_key)
-      topology_zone   = "${local.region_key}-AD-${count.index % length(data.oci_identity_availability_domains.ads.availability_domains) + 1}"
+      topology_zone   = "${local.zone_prefix}-AD-${count.index % length(data.oci_identity_availability_domains.ads.availability_domains) + 1}"
     }))
   }
 
@@ -67,5 +70,6 @@ resource "oci_core_instance" "node" {
   depends_on = [
     kubernetes_secret_v1.bootstrap_token,
     oci_core_remote_peering_connection.account_a,
+    oci_core_local_peering_gateway.account_a,
   ]
 }

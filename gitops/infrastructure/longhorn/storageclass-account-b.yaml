@@ -1,6 +1,7 @@
 # pool B: replicas only on Longhorn nodes with the tag pool-b, and pods only
 # in the zones of account B. the account B nodes set the tag and the disk
-# label themselves, see terraform/modules/account-b/files/node-init.sh.tftpl
+# label themselves, see terraform/modules/account-b/files/node-init.sh.tftpl.
+# a region with one availability domain has only the zone -AD-1
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -26,6 +27,6 @@ allowedTopologies:
   - matchLabelExpressions:
       - key: topology.kubernetes.io/zone
         values:
-          - ORD-AD-1
-          - ORD-AD-2
-          - ORD-AD-3
+          - ${oci_zone_prefix_b}-AD-1
+          - ${oci_zone_prefix_b}-AD-2
+          - ${oci_zone_prefix_b}-AD-3
