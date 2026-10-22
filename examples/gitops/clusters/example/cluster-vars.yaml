@@ -29,7 +29,15 @@ data:
   # The zones of the nodes are <prefix>-AD-1 to -AD-3. Copy the output
   # zone_prefix of terraform/accounts/a and terraform/accounts/b.
   oci_zone_prefix_a: PHX
+  # Only with account B.
   oci_zone_prefix_b: ORD
+  # Optional. Without these values, Loki runs on the OKE nodes and uses the
+  # default Longhorn class. With account B, you can move Loki to the account B
+  # nodes. Set the values before the first install of Loki, because Kubernetes
+  # cannot change the storage class of an existing Loki volume.
+  loki_node_label: tenancy
+  loki_node_value: account-b
+  loki_storage_class: longhorn-account-b
   # Each alert carries this name as the label cluster.
   cluster_name: oci-phx
   oci_object_storage_namespace: examplenamespace

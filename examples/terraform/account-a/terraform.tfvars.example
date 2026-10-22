@@ -8,7 +8,8 @@ node_memory_in_gbs           = 12
 node_ocpus                   = 2
 node_boot_volume_size_in_gbs = 75
 
-# account B. Any region works. If account_b_region is the same as region,
+# account B. Leave out the values below for a cluster in account A only.
+# Any region works. If account_b_region is the same as region,
 # the VCNs peer with local peering gateways and account B outputs lpg_id.
 # Else they peer with remote peering connections and account B outputs rpc_id.
 account_b_tenancy_id = "ocid1.tenancy.oc1..accountb"

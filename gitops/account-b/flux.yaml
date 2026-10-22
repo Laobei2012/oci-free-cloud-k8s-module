@@ -1,0 +1,22 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: account-b
+  namespace: flux-system
+spec:
+  interval: 1h
+  path: ./gitops/account-b/resources
+  prune: true
+  dependsOn:
+    - name: longhorn
+    - name: oci-cost
+  sourceRef:
+    kind: GitRepository
+    name: platform
+  # the module account-b writes oci_tenancy_id_b to oci-billing-exporter-b-vars
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-vars
+      - kind: ConfigMap
+        name: oci-billing-exporter-b-vars

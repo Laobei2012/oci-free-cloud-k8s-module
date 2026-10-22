@@ -51,14 +51,15 @@ spec:
         volume_enabled: true
     singleBinary:
       replicas: 1
-      # the account B nodes have the most free memory and an empty Longhorn
-      # pool. pods with a longhorn-account-b volume run only in its zones
+      # with account B, cluster-vars can move Loki to the account B nodes,
+      # because they have the most free memory and an empty Longhorn pool.
+      # the default is the OKE nodes and the default Longhorn class
       nodeSelector:
-        tenancy: account-b
+        ${loki_node_label:=name}: ${loki_node_value:=k8s-cluster}
       persistence:
         enabled: true
         size: 20Gi
-        storageClass: longhorn-account-b
+        storageClass: ${loki_storage_class:=longhorn}
       resources:
         requests:
           cpu: 100m

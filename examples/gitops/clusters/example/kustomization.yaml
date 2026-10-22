@@ -7,3 +7,5 @@ resources:
   - cluster-vars.yaml
   - platform-source.yaml
   - platform.yaml
+  # only with account B
+  - platform-account-b.yaml

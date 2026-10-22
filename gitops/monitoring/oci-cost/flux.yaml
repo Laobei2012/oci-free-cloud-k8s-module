@@ -16,14 +16,11 @@ spec:
   sourceRef:
     kind: GitRepository
     name: platform
-  # the module cluster (modules/grafana) writes oci_tenancy_id and
-  # the module account-b writes oci_tenancy_id_b to these ConfigMaps.
+  # the module cluster (modules/grafana) writes oci_tenancy_id to this ConfigMap
   postBuild:
     substituteFrom:
       - kind: ConfigMap
         name: oci-billing-exporter-vars
-      - kind: ConfigMap
-        name: oci-billing-exporter-b-vars
   healthChecks:
     - apiVersion: postgresql.cnpg.io/v1
       kind: Cluster
