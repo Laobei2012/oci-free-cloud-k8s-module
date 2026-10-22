@@ -1,0 +1,28 @@
+# oci-cost-collector for account B. It runs on the account B nodes and reads
+# the cost reports of account B with their instance principal, see
+# terraform/modules/account-b/cost-reports.tf
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: oci-cost-collector-account-b
+  namespace: oci-cost
+spec:
+  interval: 1h
+  timeout: 5m
+  chart:
+    spec:
+      chart: oci-cost-collector
+      version: "0.3.0"
+      sourceRef:
+        kind: HelmRepository
+        name: oci-cost-collector
+      interval: 1h
+  releaseName: oci-cost-collector-account-b
+  values:
+    tenancyId: ${oci_tenancy_id_b}
+    account: b
+    schedule: "47 * * * *"
+    readRoles:
+      - cnpg_metrics_exporter
+    nodeSelector:
+      tenancy: account-b

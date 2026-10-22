@@ -1,0 +1,7 @@
+# The apps for the worker nodes of account B. Add this path to the live
+# repository only if you use account B, see examples/gitops.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flux-system
+resources:
+  - flux.yaml

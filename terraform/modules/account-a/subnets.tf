@@ -42,11 +42,14 @@ resource "oci_core_security_list" "private_subnet_sl" {
   }
 
   # ingress from the account B nodes
-  ingress_security_rules {
-    stateless   = false
-    source      = var.account_b_vcn_cidr
-    source_type = "CIDR_BLOCK"
-    protocol    = "all"
+  dynamic "ingress_security_rules" {
+    for_each = local.account_b ? [1] : []
+    content {
+      stateless   = false
+      source      = var.account_b_vcn_cidr
+      source_type = "CIDR_BLOCK"
+      protocol    = "all"
+    }
   }
 }
 
@@ -72,11 +75,14 @@ resource "oci_core_security_list" "public_subnet_sl" {
   }
 
   # ingress from the account B nodes (k8s-api private endpoint)
-  ingress_security_rules {
-    stateless   = false
-    source      = var.account_b_vcn_cidr
-    source_type = "CIDR_BLOCK"
-    protocol    = "all"
+  dynamic "ingress_security_rules" {
+    for_each = local.account_b ? [1] : []
+    content {
+      stateless   = false
+      source      = var.account_b_vcn_cidr
+      source_type = "CIDR_BLOCK"
+      protocol    = "all"
+    }
   }
 
   # ingress from internet on k8s-api

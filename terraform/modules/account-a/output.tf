@@ -27,8 +27,9 @@ output "k8s_cluster_ca" {
   value = yamldecode(data.oci_containerengine_cluster_kube_config.k8s_cluster_kube_config.content).clusters[0].cluster["certificate-authority-data"]
 }
 
+# null without account B
 output "account_b_peering_status" {
-  value = local.same_region ? oci_core_local_peering_gateway.account_b[0].peering_status : oci_core_remote_peering_connection.account_b[0].peering_status
+  value = one(concat(oci_core_local_peering_gateway.account_b[*].peering_status, oci_core_remote_peering_connection.account_b[*].peering_status))
 }
 
 # the zones of the OKE nodes are <zone_prefix>-AD-1 to -AD-3.

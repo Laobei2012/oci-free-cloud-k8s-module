@@ -2,7 +2,8 @@
 
 This repository has Terraform modules and Flux apps for a Kubernetes cluster on
 the Oracle Cloud [Always Free tier][oci-free-tier]. The cluster costs nothing per
-month. It uses two free tier accounts to get four worker nodes.
+month. With one free tier account, it has two worker nodes. With a second
+account, it has four worker nodes.
 
 You do not run Terraform or Flux from this repository. You run them from a
 second, private repository: the live repository. The live repository holds your
@@ -20,15 +21,19 @@ notes and the history of Kubernetes upgrades.
 | Part | Content |
 | --- | --- |
 | Account A | The OKE cluster in the home region of account A, and a node pool of two `VM.Standard.A1.Flex` nodes |
-| Account B | Two more `VM.Standard.A1.Flex` nodes in the home region of account B. They join the cluster through a VCN peering. |
+| Account B (optional) | Two more `VM.Standard.A1.Flex` nodes in the home region of account B. They join the cluster through a VCN peering. |
 | Ingress | envoy-gateway with Gateway API on the free layer 7 load balancer. Teleport uses the free layer 4 load balancer. |
 | Login | Dex with GitHub as the identity provider. `HTTPRoute` objects use OIDC through envoy-gateway. |
 | GitOps | The Flux operator. A GitHub webhook starts a sync, and Flux writes the commit status to GitHub. |
 | Storage | Longhorn, with one pool in each account |
 
+Account B is optional. Without account B, the cluster has only the OKE nodes
+in account A. [One account or two accounts](#one-account-or-two-accounts)
+shows what changes.
+
 All nodes are arm64. The free tier has no free x86 instances.
 
-The two accounts can use any home region. The free tier resources are only
+With two accounts, the accounts can use any home region. The free tier resources are only
 in the home region of an account. If the two home regions are the same, the
 VCNs peer with local peering gateways (LPG). If the regions are different,
 the VCNs peer with remote peering connections (RPC) on a dynamic routing
@@ -52,6 +57,7 @@ explains the setup.
 | [gitops/monitoring](gitops/monitoring/) | grafana, kube-prometheus-stack, loki, oci-cost |
 | [gitops/tools](gitops/tools/) | jenkins |
 | [gitops/platform](gitops/platform/) | The entry point for Flux. It lists the three folders above. |
+| [gitops/account-b](gitops/account-b/) | The second entry point for Flux, only with account B: the Longhorn class `longhorn-account-b` and the cost collector of account B |
 | [examples](examples/) | The Terraform root modules and the Flux entry point of a live repository |
 
 Each app folder has a `flux.yaml` with its own Flux `Kustomization`. All of them
@@ -77,7 +83,7 @@ the live repository.
 
 ## Requirements
 
-- Two Oracle Cloud free tier accounts, A and B
+- One Oracle Cloud free tier account A, and optionally a second account B
 - Terraform 1.12 or later, for the `oci` backend
 - The `oci` CLI, with a profile for each account in `~/.oci/config`
 - A domain in Cloudflare, for cert-manager and external-dns
@@ -97,14 +103,14 @@ subscription.
    oci os bucket create --name terraform-states --versioning Enabled --compartment-id <tenancy_id>
    ```
 3. Copy `examples/terraform/account-a` to `terraform/accounts/a` in the live repository.
-4. Copy `examples/terraform/account-b` to `terraform/accounts/b`.
+4. Only with account B: copy `examples/terraform/account-b` to `terraform/accounts/b`.
 5. Copy `examples/terraform/cluster` to `terraform/clusters/oci`.
 6. In each `main.tf`, change the module `source` to the git URL in the comment above it.
 7. In each stack, copy `backend.hcl.example` to `backend.hcl` and set your object storage namespace.
 8. In each stack, copy `terraform.tfvars.example` to `terraform.tfvars` and set your values.
 9. Create the vault secrets in the table below.
-10. Apply `terraform/accounts/a`, then `terraform/accounts/b`, then `terraform/clusters/oci`.
-11. Copy `examples/gitops/clusters/example` to `gitops/clusters/oci`, and set your values in `cluster-vars.yaml`.
+10. Apply `terraform/accounts/a`, then `terraform/accounts/b` if you use account B, then `terraform/clusters/oci`.
+11. Copy `examples/gitops/clusters/example` to `gitops/clusters/oci`, and set your values in `cluster-vars.yaml`. Without account B, remove `platform-account-b.yaml`.
 
 Run each stack with these commands:
 
@@ -114,10 +120,18 @@ terraform apply
 ```
 
 The stack `accounts/a` writes the kubeconfig to `terraform/.kube.config`. The
-other two stacks use this file. The file has no credentials, because the `oci`
+other stacks use this file. The file has no credentials, because the `oci`
 CLI makes the token.
 
-Set `region` and `account_b_region` in `accounts/a`, and `region` and
+## One account or two accounts
+
+Without account B, leave out `account_b_tenancy_id` and the other `account_b_`
+values in `accounts/a`. The module then makes no peering. You do not need the
+stack `accounts/b`, the file `platform-account-b.yaml`, or the value
+`oci_zone_prefix_b`. Loki runs on the OKE nodes and uses the default Longhorn
+class.
+
+With account B, set `region` and `account_b_region` in `accounts/a`, and `region` and
 `account_a_region` in `accounts/b`. The modules compare the two regions and
 select LPG or RPC.
 
@@ -133,6 +147,14 @@ values as `oci_zone_prefix_a` and `oci_zone_prefix_b` in `cluster-vars.yaml`.
 Longhorn uses the zones to keep the volumes of each account on its own nodes.
 If the two regions are the same, the account B zones get the suffix `-B`, for
 example `PHX-B-AD-1`.
+
+With account B, you can also move Loki to the account B nodes. Set
+`loki_node_label: tenancy`, `loki_node_value: account-b` and
+`loki_storage_class: longhorn-account-b` in `cluster-vars.yaml`. Set these
+values before the first install of Loki. Kubernetes cannot change the storage
+class of an existing Loki volume.
+
+## Flux and the first apply
 
 The module `cluster` installs the Flux operator. Flux then syncs
 `gitops/clusters/oci` of the live repository. If the first apply of

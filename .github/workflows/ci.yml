@@ -31,6 +31,9 @@ jobs:
         working-directory: ${{ matrix.dir }}
       - run: terraform validate
         working-directory: ${{ matrix.dir }}
+      # the tests use mock providers, so they need no cloud credentials
+      - run: if [ -d tests ]; then terraform test; fi
+        working-directory: ${{ matrix.dir }}
 
   gitops:
     runs-on: ubuntu-latest
@@ -51,7 +54,7 @@ jobs:
         run: |
           eval "$(yq '.data | to_entries | .[] | "export " + .key + "=" + (.value | @sh)' examples/gitops/clusters/example/cluster-vars.yaml)"
           for dir in gitops/platform examples/gitops/clusters/example \
-            $(find gitops/infrastructure gitops/monitoring gitops/tools -name kustomization.yaml -exec dirname {} \;); do
+            $(find gitops/infrastructure gitops/monitoring gitops/tools gitops/account-b -name kustomization.yaml -exec dirname {} \;); do
             echo "::group::$dir"
             kubectl kustomize "$dir" | flux envsubst | kubeconform -strict -summary -ignore-missing-schemas -skip Password \
               -schema-location default \

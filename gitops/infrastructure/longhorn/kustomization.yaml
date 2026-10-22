@@ -5,7 +5,6 @@ resources:
   - namespace.yaml
   - helm.yaml
   - recurringjob.yaml
-  - storageclass-account-b.yaml
   - secret.yaml
   - securitypolicy.yaml
   - httproute.yaml

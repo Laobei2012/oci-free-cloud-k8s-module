@@ -12,3 +12,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: platform
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-vars

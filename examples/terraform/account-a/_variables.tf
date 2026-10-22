@@ -59,13 +59,15 @@ variable "group_name" {
 }
 
 variable "account_b_tenancy_id" {
-  description = "Tenancy OCID of account B, which hosts the additional worker nodes"
+  description = "Tenancy OCID of account B, which hosts the additional worker nodes. Null for a cluster in account A only"
   type        = string
+  default     = null
 }
 
 variable "account_b_region" {
-  description = "Home region of account B. If it is the same as region, the VCNs peer with local peering gateways"
+  description = "Home region of account B. If it is the same as region, the VCNs peer with local peering gateways. Required with account_b_tenancy_id"
   type        = string
+  default     = null
 }
 
 variable "account_b_rpc_id" {

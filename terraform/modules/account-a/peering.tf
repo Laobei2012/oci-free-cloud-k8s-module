@@ -1,18 +1,22 @@
 # Peering to the VCN of account B (other tenancy). If both accounts have the
 # same home region, the VCNs peer with local peering gateways (LPG). Else they
-# peer with remote peering connections (RPC) on a DRG.
+# peer with remote peering connections (RPC) on a DRG. Without account B
+# (account_b_tenancy_id null), there is no peering.
 # Account A is the requestor and connects to the RPC or LPG of account B,
 # see terraform/modules/account-b/peering.tf
 locals {
+  account_b   = var.account_b_tenancy_id != null
   same_region = var.account_b_region == var.region
+  use_lpg     = local.account_b && local.same_region
+  use_rpc     = local.account_b && !local.same_region
   # route target for the account B VCN
-  account_b_gateway_id = local.same_region ? oci_core_local_peering_gateway.account_b[0].id : oci_core_drg_attachment.k8s_vcn[0].drg_id
-  account_b_route_rules = [{
+  account_b_gateway_id = local.use_lpg ? one(oci_core_local_peering_gateway.account_b[*].id) : one(oci_core_drg_attachment.k8s_vcn[*].drg_id)
+  account_b_route_rules = local.account_b ? [{
     destination       = var.account_b_vcn_cidr
     destination_type  = "CIDR_BLOCK"
-    network_entity_id = local.same_region ? oci_core_local_peering_gateway.account_b[0].id : "drg"
+    network_entity_id = local.use_lpg ? local.account_b_gateway_id : "drg"
     description       = "account B worker nodes"
-  }]
+  }] : []
   policy_scope = var.compartment_id == var.tenancy_id ? "tenancy" : "compartment id ${var.compartment_id}"
 }
 
@@ -31,14 +35,19 @@ moved {
   to   = oci_core_remote_peering_connection.account_b[0]
 }
 
+moved {
+  from = oci_identity_policy.account_b_peering
+  to   = oci_identity_policy.account_b_peering[0]
+}
+
 resource "oci_core_drg" "k8s_drg" {
-  count          = local.same_region ? 0 : 1
+  count          = local.use_rpc ? 1 : 0
   compartment_id = var.compartment_id
   display_name   = "k8s-drg"
 }
 
 resource "oci_core_drg_attachment" "k8s_vcn" {
-  count        = local.same_region ? 0 : 1
+  count        = local.use_rpc ? 1 : 0
   drg_id       = oci_core_drg.k8s_drg[0].id
   display_name = "k8s-vcn"
 
@@ -62,16 +71,19 @@ resource "oci_core_route_table" "public" {
     description       = "Internet Gateway as default gateway for IPv4 destinations"
   }
 
-  route_rules {
-    destination       = var.account_b_vcn_cidr
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = local.account_b_gateway_id
-    description       = "account B worker nodes"
+  dynamic "route_rules" {
+    for_each = local.account_b ? [1] : []
+    content {
+      destination       = var.account_b_vcn_cidr
+      destination_type  = "CIDR_BLOCK"
+      network_entity_id = local.account_b_gateway_id
+      description       = "account B worker nodes"
+    }
   }
 }
 
 resource "oci_core_remote_peering_connection" "account_b" {
-  count            = local.same_region ? 0 : 1
+  count            = local.use_rpc ? 1 : 0
   compartment_id   = var.compartment_id
   drg_id           = oci_core_drg.k8s_drg[0].id
   display_name     = "k8s-account-b"
@@ -82,7 +94,7 @@ resource "oci_core_remote_peering_connection" "account_b" {
 }
 
 resource "oci_core_local_peering_gateway" "account_b" {
-  count          = local.same_region ? 1 : 0
+  count          = local.use_lpg ? 1 : 0
   compartment_id = var.compartment_id
   vcn_id         = module.vcn.vcn_id
   display_name   = "k8s-account-b"
@@ -94,6 +106,7 @@ resource "oci_core_local_peering_gateway" "account_b" {
 # requestor policy, account B admits the same group.
 # for an RPC, the requestor tenancy must also be subscribed to the region of account B
 resource "oci_identity_policy" "account_b_peering" {
+  count          = local.account_b ? 1 : 0
   compartment_id = var.tenancy_id
   name           = local.same_region ? "endorse-account-b-local-peering" : "endorse-account-b-remote-peering"
   description    = local.same_region ? "Allows the k8s LPG to connect to the LPG of account B" : "Allows the k8s DRG to connect to the RPC of account B"
