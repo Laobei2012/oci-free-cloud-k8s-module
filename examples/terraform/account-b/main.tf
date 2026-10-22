@@ -1,4 +1,6 @@
 module "account_b" {
+  # CI validates the example against the modules of the same commit. In your live
+  # repo, use: git::https://github.com/Laobei2012/oci-free-cloud-k8s-module.git//terraform/modules/account-b?ref=v0.1.0
   source = "../../../terraform/modules/account-b"
 
   k8s_version                  = data.terraform_remote_state.infra.outputs.k8s_version

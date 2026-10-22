@@ -15,7 +15,7 @@ data "terraform_remote_state" "infra" {
   config = {
     namespace           = var.state_namespace
     bucket              = var.state_bucket
-    key                 = "infra/terraform.tfstate"
+    key                 = "account-a/terraform.tfstate"
     config_file_profile = var.account_a_config_profile
     auth                = var.account_a_auth
     region              = var.account_a_region

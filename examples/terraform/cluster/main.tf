@@ -1,4 +1,6 @@
 module "cluster" {
+  # CI validates the example against the modules of the same commit. In your live
+  # repo, use: git::https://github.com/Laobei2012/oci-free-cloud-k8s-module.git//terraform/modules/cluster?ref=v0.1.0
   source = "../../../terraform/modules/cluster"
 
   compartment_id             = var.compartment_id
