@@ -192,7 +192,12 @@ Before you apply a new release, read the `terraform plan` of each stack.
 1. Push the change to a branch of this repository.
 2. In the live repository, set each module `?ref=` to the branch name.
 3. Run `terraform init -upgrade` and `terraform plan` in each stack.
-4. To test the apps, set `spec.ref.branch` in the `GitRepository` `platform` of the cluster.
+4. To test the apps, run `flux suspend kustomization flux-system`. Otherwise Flux sets the tag again at the next sync.
+5. Point the `GitRepository` `platform` at the branch. Flux ignores a branch while the tag is set, so remove the tag:
+   ```
+   kubectl -n flux-system patch gitrepository platform --type merge -p '{"spec":{"ref":{"tag":null,"branch":"<branch>"}}}'
+   ```
+6. After the test, run `flux resume kustomization flux-system`, and set each module `?ref=` to the tag again.
 
 CI runs on each pull request of this repository. It runs `terraform validate`
 on the modules and the examples. It builds each Kustomization, replaces the
