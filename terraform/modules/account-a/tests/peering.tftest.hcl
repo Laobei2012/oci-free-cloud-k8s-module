@@ -141,3 +141,28 @@ run "account_b_without_region" {
 
   expect_failures = [var.account_b_region]
 }
+
+run "one_availability_domain" {
+  command = apply
+
+  override_data {
+    target = data.oci_identity_availability_domains.ads
+    values = {
+      availability_domains = [{ name = "xyz:SJC-AD-1" }]
+    }
+  }
+
+  assert {
+    condition     = length(oci_containerengine_node_pool.k8s_node_pool.node_config_details[0].placement_configs) == 1
+    error_message = "In a region with one availability domain, the node pool must have one placement."
+  }
+}
+
+run "three_availability_domains" {
+  command = apply
+
+  assert {
+    condition     = length(oci_containerengine_node_pool.k8s_node_pool.node_config_details[0].placement_configs) == 3
+    error_message = "In a region with three availability domains, the node pool must have three placements."
+  }
+}
