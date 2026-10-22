@@ -1,0 +1,29 @@
+# Site-specific values. Flux replaces ${name} in the manifests with the values below.
+# Copy this file to gitops/clusters/<cluster> in your live repository and set
+# your own values.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-vars
+  namespace: flux-system
+data:
+  cluster_domain: k8s.example.com
+  acme_email: admin@example.com
+  # The GitHub organization and team whose members can log in with Dex.
+  github_org: example-org
+  github_team: admin
+  # A GitHub bot account with read-only access to Jenkins, and its team.
+  # The team lets the bot log in to Dex.
+  vigil_github_user: example-bot
+  vigil_github_team: readonly
+  # The live repository that Flux syncs. Flux sends commit statuses to it.
+  github_repo_url: https://github.com/example-org/example-live
+  # The Slack channel that gets the Flux error messages. The bot must be in it.
+  flux_slack_channel_id: C0000000000
+  teleport_github_client_id: Ov23example
+  # The reserved public IP of the load balancer and its network security group,
+  # from the module cluster (modules/ingress).
+  lb_ip: 203.0.113.10
+  lb_security_group_id: ocid1.networksecuritygroup.oc1.phx.example
+  oci_region: us-phoenix-1
+  oci_object_storage_namespace: examplenamespace

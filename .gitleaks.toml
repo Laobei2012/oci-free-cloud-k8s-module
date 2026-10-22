@@ -1,0 +1,9 @@
+# The default rules, and an allowlist for Jenkins plugin versions such as
+# oic-auth:4.731.v4932b_506e767, which look like API keys to the generic rule.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Jenkins plugin versions"
+paths = ['''^gitops/tools/jenkins/helm\.yaml$''']
+regexes = ['''^[0-9.]+\.v[0-9a-f_]+$''']

@@ -1,0 +1,112 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jenkins
+spec:
+  interval: 5m
+  url: https://charts.jenkins.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: jenkins
+spec:
+  interval: 10m
+  timeout: 10m
+  chart:
+    spec:
+      chart: jenkins
+      version: '5.9.68'
+      sourceRef:
+        kind: HelmRepository
+        name: jenkins
+      interval: 5m
+  releaseName: jenkins
+  # The live repo can add its own agents and jobs as JCasC configScripts, for
+  # example nodes and jobs, in the key values.yaml of this ConfigMap.
+  # Label the ConfigMap reconcile.fluxcd.io/watch: Enabled, so that a change
+  # starts a Helm upgrade.
+  valuesFrom:
+    - kind: ConfigMap
+      name: jenkins-site-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    controller:
+      jenkinsUrl: https://jenkins.${cluster_domain}
+      resources:
+        requests:
+          cpu: 200m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+      additionalPlugins:
+        - github:1.47.0
+        - job-dsl:3732.v9a_c49a_61a_313
+        - generic-webhook-trigger:2.4.3
+        - oic-auth:4.731.v4932b_506e767
+        - matrix-auth:3.3
+        - prometheus:860.v532442b_44e9a_
+      # The chart does not install the prometheus plugin, so it is in the list
+      # above. The release label lets kube-prometheus-stack find the monitor.
+      prometheus:
+        enabled: true
+        serviceMonitorAdditionalLabels:
+          release: kube-prometheus-stack
+      # Mounted for JCasC, which reads the keys as $${jenkins-webhook-password}
+      # and $${dex-envoy-client-client-secret}.
+      additionalExistingSecrets:
+        - name: jenkins-webhook
+          keyName: password
+        - name: dex-envoy-client
+          keyName: client-secret
+      JCasC:
+        # Jenkins logs in with Dex itself, so a user sees no Jenkins login form.
+        securityRealm: |-
+          oic:
+            clientId: envoy-gateway
+            clientSecret: "$${dex-envoy-client-client-secret}"
+            serverConfiguration:
+              wellKnown:
+                wellKnownOpenIDConfigurationUrl: https://login.${cluster_domain}/dex/.well-known/openid-configuration
+                scopesOverride: "openid profile email groups"
+            userNameField: preferred_username
+            fullNameFieldName: name
+            emailFieldName: email
+            groupsFieldName: groups
+            # GitHub logins are not case-sensitive. Without these two fields,
+            # the plugin shows a warning on "Manage Jenkins".
+            userIdStrategy: caseInsensitive
+            groupIdStrategy: caseInsensitive
+            logoutFromOpenidProvider: false
+            # Without this field, an API token works only while its user has a
+            # current Dex session. Vigil reads Jenkins with an API token.
+            allowTokenAccessWithoutOicSession: true
+            properties:
+              - "pkce"
+        # The GitHub admin team gets all permissions. The Vigil bot can read
+        # jobs and build logs, and it can do nothing else. Other users that
+        # log in get no permissions.
+        authorizationStrategy: |-
+          globalMatrix:
+            entries:
+              - group:
+                  name: "${github_org}:${github_team}"
+                  permissions:
+                    - "Overall/Administer"
+              - user:
+                  name: "${vigil_github_user}"
+                  permissions:
+                    - "Overall/Read"
+                    - "Job/Read"
+        configScripts:
+          # Grafana dashboard 21628 reads metrics named prometheus_jenkins_*.
+          # The plugin default prefix is default_jenkins_*.
+          prometheus: |
+            unclassified:
+              prometheusConfiguration:
+                defaultNamespace: prometheus
+    persistence:
+      storageClass: longhorn
+      size: 8Gi

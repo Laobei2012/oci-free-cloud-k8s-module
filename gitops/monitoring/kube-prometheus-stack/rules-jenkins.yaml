@@ -1,0 +1,23 @@
+# The Jenkins alert links to the console log, so it needs cluster_domain.
+# Flux substitutes ${cluster_domain} in this file. Flux replaces only the
+# ${name} form, so it does not change {{ $labels.x }}.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jenkins
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: jenkins
+      rules:
+        # The prometheus plugin gives the result of the last build of each
+        # job as a number: 0 success, 1 unstable, 2 failure, 3 not built,
+        # 4 aborted. The alert stays until the next build of the job does not fail.
+        - alert: JenkinsJobFailed
+          expr: prometheus_jenkins_builds_last_build_result_ordinal{namespace="jenkins"} == 2
+          labels:
+            severity: critical
+          annotations:
+            summary: The last build of the Jenkins job {{ $labels.jenkins_job }} failed.
+            description: "Console log: https://jenkins.${cluster_domain}/job/{{ $labels.jenkins_job }}/lastFailedBuild/console"

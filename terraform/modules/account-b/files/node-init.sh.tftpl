@@ -1,0 +1,147 @@
+#!/bin/bash
+# Joins an Oracle Linux 9 instance of account B to the OKE cluster of account A.
+# The kubelet uses the kubelet TLS bootstrap with a bootstrap token,
+# see terraform/infra-b/token.tf
+set -euxo pipefail
+
+/usr/libexec/oci-growfs -y
+
+# the cluster security lists filter the traffic
+systemctl disable --now firewalld || true
+setenforce 0 || true
+sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+swapoff -a
+
+cat >/etc/modules-load.d/k8s.conf <<EOF
+overlay
+br_netfilter
+EOF
+modprobe overlay
+modprobe br_netfilter
+
+cat >/etc/sysctl.d/99-k8s.conf <<EOF
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sysctl --system
+
+cat >/etc/yum.repos.d/kubernetes.repo <<EOF
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/${k8s_minor}/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/${k8s_minor}/rpm/repodata/repomd.xml.key
+EOF
+
+cat >/etc/yum.repos.d/cri-o.repo <<EOF
+[cri-o]
+name=CRI-O
+baseurl=https://download.opensuse.org/repositories/isv:/cri-o:/stable:/${k8s_minor}/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://download.opensuse.org/repositories/isv:/cri-o:/stable:/${k8s_minor}/rpm/repodata/repomd.xml.key
+EOF
+
+# iscsi and nfs for longhorn volumes, conntrack and iptables for kube-proxy
+dnf install -y cri-o kubelet-${k8s_version} kubernetes-cni conntrack-tools iptables-nft iscsi-initiator-utils nfs-utils
+
+# the OKE kube-proxy init container reads the version from this file,
+# because these instances have no OKE instance metadata
+mkdir -p /etc/oke
+echo "v${k8s_version}" >/etc/oke/oke-k8s-version
+
+# flannel from OKE writes its own CNI configuration
+rm -f /etc/cni/net.d/*crio*
+
+systemctl enable --now crio iscsid
+
+NODE_IP=$(hostname -I | awk '{print $1}')
+
+mkdir -p /etc/kubernetes/pki /var/lib/kubelet
+echo "${cluster_ca}" | base64 -d >/etc/kubernetes/pki/ca.crt
+
+cat >/etc/kubernetes/bootstrap-kubelet.conf <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: oke
+  cluster:
+    server: ${api_server}
+    certificate-authority: /etc/kubernetes/pki/ca.crt
+users:
+- name: kubelet-bootstrap
+  user:
+    token: ${bootstrap_token}
+contexts:
+- name: bootstrap
+  context:
+    cluster: oke
+    user: kubelet-bootstrap
+current-context: bootstrap
+EOF
+chmod 600 /etc/kubernetes/bootstrap-kubelet.conf
+
+# values match the kubelet configuration of the OKE managed nodes
+cat >/var/lib/kubelet/config.yaml <<EOF
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    enabled: true
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+authorization:
+  mode: Webhook
+cgroupDriver: systemd
+clusterDNS:
+- 10.96.5.5
+clusterDomain: cluster.local
+containerRuntimeEndpoint: unix:///var/run/crio/crio.sock
+rotateCertificates: true
+# the API server verifies the kubelet serving certificate against the
+# cluster CA, so the kubelet requests it with a CSR. approve it with
+# kubectl certificate approve, see README.md
+serverTLSBootstrap: true
+EOF
+
+# the node name is the private ip, like the OKE managed nodes
+mkdir -p /etc/systemd/system/kubelet.service.d
+cat >/etc/systemd/system/kubelet.service.d/20-oke-join.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=/usr/bin/kubelet \
+  --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
+  --kubeconfig=/etc/kubernetes/kubelet.conf \
+  --config=/var/lib/kubelet/config.yaml \
+  --hostname-override=$NODE_IP \
+  --node-ip=$NODE_IP \
+  --node-labels=tenancy=account-b,node.kubernetes.io/exclude-from-external-load-balancers=true,node.longhorn.io/create-default-disk=true,topology.kubernetes.io/region=${topology_region},topology.kubernetes.io/zone=${topology_zone}
+EOF
+
+systemctl daemon-reload
+systemctl enable --now kubelet
+
+# longhorn reads the node tags from this annotation. replicas of a volume
+# without a node selector cannot use a node with a tag, see
+# gitops/core/longhorn. the kubelet credential can change its own node
+cat >/usr/local/sbin/longhorn-node-tag.sh <<EOF
+#!/bin/bash
+until curl -sf --cacert /etc/kubernetes/pki/ca.crt \
+    --cert /var/lib/kubelet/pki/kubelet-client-current.pem \
+    --key /var/lib/kubelet/pki/kubelet-client-current.pem \
+    -X PATCH -H 'Content-Type: application/merge-patch+json' \
+    -d '{"metadata":{"annotations":{"node.longhorn.io/default-node-tags":"[\\"pool-b\\"]"}}}' \
+    ${api_server}/api/v1/nodes/$NODE_IP >/dev/null; do
+  sleep 5
+done
+EOF
+chmod 755 /usr/local/sbin/longhorn-node-tag.sh
+# the node can only join after the peering is active, so the patch runs
+# until it succeeds. Longhorn creates the disk when the node registers, and
+# a pool A replica can use the disk until the tag is set, so retry quickly
+systemd-run --unit=longhorn-node-tag /usr/local/sbin/longhorn-node-tag.sh

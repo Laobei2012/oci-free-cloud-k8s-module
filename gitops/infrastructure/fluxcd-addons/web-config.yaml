@@ -1,0 +1,35 @@
+# The Flux Operator Web UI reads this config. Users log in through Dex with GitHub.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: flux-web-config
+spec:
+  refreshInterval: 3m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: oracle-vault
+  target:
+    name: flux-web-config
+    creationPolicy: Owner
+    deletionPolicy: Delete
+    template:
+      engineVersion: v2
+      data:
+        config.yaml: |
+          apiVersion: web.fluxcd.controlplane.io/v1
+          kind: Config
+          spec:
+            baseURL: https://flux.${cluster_domain}
+            authentication:
+              type: OAuth2
+              oauth2:
+                provider: OIDC
+                clientID: envoy-gateway
+                clientSecret: "{{ .pw }}"
+                issuerURL: https://login.${cluster_domain}/dex/
+  data:
+    - secretKey: pw
+      remoteRef:
+        key: dex-envoy-client-secret
+        version: CURRENT
+        decodingStrategy: None

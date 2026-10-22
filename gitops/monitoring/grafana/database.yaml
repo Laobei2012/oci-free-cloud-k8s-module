@@ -1,0 +1,25 @@
+# The Grafana database with users, preferences and UI changes. Without it,
+# Grafana uses SQLite on an emptyDir and loses this data at each restart.
+# CloudNativePG creates the Secret grafana-db-app with the password of the
+# grafana role.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: grafana-db
+  namespace: grafana
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  bootstrap:
+    initdb:
+      database: grafana
+      owner: grafana
+  storage:
+    size: 1Gi
+    storageClass: longhorn
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

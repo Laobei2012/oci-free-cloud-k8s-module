@@ -1,0 +1,23 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  annotations:
+    # The source moves to the public module repo. Without this annotation,
+    # flux-system prunes this Kustomization during the move, and Flux then
+    # deletes its apps. Remove it after the move.
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: kubelet-csr-approver
+  namespace: flux-system
+spec:
+  interval: 1h
+  timeout: 10m
+  path: ./gitops/infrastructure/kubelet-csr-approver
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: platform
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: kubelet-csr-approver
+      namespace: kubelet-csr-approver

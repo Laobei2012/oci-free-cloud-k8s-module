@@ -1,0 +1,72 @@
+# Checks that need no cloud credentials. The live repository plans and applies.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir:
+          - terraform/modules/account-a
+          - terraform/modules/account-b
+          - terraform/modules/cluster
+          - terraform/modules/github-oidc
+          - examples/terraform/account-a
+          - examples/terraform/account-b
+          - examples/terraform/cluster
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+        working-directory: ${{ matrix.dir }}
+      - run: terraform init -backend=false -input=false
+        working-directory: ${{ matrix.dir }}
+      - run: terraform validate
+        working-directory: ${{ matrix.dir }}
+
+  gitops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C /usr/local/bin kubeconform
+      - uses: fluxcd/flux2/action@v2.9.6
+        with:
+          version: 2.9.6
+      # Flux replaces ${name} with the values of the example cluster-vars, as in a
+      # live cluster. Variables from other ConfigMaps become empty.
+      # The CRD schemas come from the datreeio catalog. Kinds without a schema are skipped.
+      # The Password schema requires fields that have a default in the CRD.
+      - name: Build and validate
+        run: |
+          eval "$(yq '.data | to_entries | .[] | "export " + .key + "=" + (.value | @sh)' examples/gitops/clusters/example/cluster-vars.yaml)"
+          for dir in gitops/platform examples/gitops/clusters/example \
+            $(find gitops/infrastructure gitops/monitoring gitops/tools -name kustomization.yaml -exec dirname {} \;); do
+            echo "::group::$dir"
+            kubectl kustomize "$dir" | flux envsubst | kubeconform -strict -summary -ignore-missing-schemas -skip Password \
+              -schema-location default \
+              -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+            echo "::endgroup::"
+          done
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # .gitleaks.toml uses [[allowlists]], which needs gitleaks 8.25 or later.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1

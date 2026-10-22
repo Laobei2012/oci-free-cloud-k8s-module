@@ -1,0 +1,58 @@
+# CloudNativePG runs this query at each scrape and exports the result as
+# cnpg_oci_cost_month_to_date. The PrometheusRule in alerts.yaml pages on it.
+# The query returns one row for each account, also on the first day of a
+# month before OCI reports any usage of that month.
+#
+# CloudNativePG runs the query as the role cnpg_metrics_exporter, which can
+# read only the tables that you grant to it. oci-cost-collector owns the
+# tables and grants SELECT to this role at each run, see readRoles in
+# helm.yaml. Without the grant, the metric is missing and
+# OCICostMetricMissing fires.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oci-cost-monitoring
+data:
+  queries.yaml: |
+    oci_cost:
+      query: |
+        SELECT a.account,
+          coalesce(m.currency, (SELECT l.currency_code FROM cost_line l
+            WHERE l.account = a.account AND l.currency_code <> ''
+            ORDER BY l.usage_start DESC LIMIT 1), '') AS currency,
+          coalesce(m.cost, 0) AS month_to_date
+        FROM (SELECT DISTINCT account FROM cost_report) AS a
+        LEFT JOIN (
+          SELECT account, currency_code AS currency, sum(my_cost) AS cost
+          FROM cost_line
+          WHERE usage_start >= date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+            AND currency_code <> ''
+          GROUP BY account, currency_code
+        ) AS m USING (account)
+      target_databases:
+        - oci_cost
+      metrics:
+        - account:
+            usage: LABEL
+            description: The account of the cost, a or b.
+        - currency:
+            usage: LABEL
+            description: The billing currency of the account.
+        - month_to_date:
+            usage: GAUGE
+            description: The cost of the usage from the first day of this month (UTC) to now.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: oci-cost
+  labels:
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: oci-cost
+      cnpg.io/podRole: instance
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 5m

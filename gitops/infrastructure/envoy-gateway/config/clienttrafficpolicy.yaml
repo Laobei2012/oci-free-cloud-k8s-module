@@ -1,0 +1,14 @@
+# Envoy decodes %2F to "/" by default and redirects the client. Jenkins puts
+# URLs with %2F in its paths, for example the reverse proxy check on
+# "Manage Jenkins", so Envoy must keep them unchanged.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: envoy
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy
+  path:
+    escapedSlashesAction: KeepUnchanged

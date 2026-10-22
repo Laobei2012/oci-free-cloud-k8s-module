@@ -1,0 +1,40 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: oracle-lb
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        annotations:
+          oci.oraclecloud.com/oci-network-security-groups: ${lb_security_group_id}
+          service.beta.kubernetes.io/oci-load-balancer-shape: flexible
+          service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "10"
+          service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
+          service.beta.kubernetes.io/oci-load-balancer-security-list-management-mode: "None"
+      # with externalTrafficPolicy Local, the load balancer sends traffic only
+      # to its backend nodes that run an envoy pod. the account B nodes have
+      # the exclude label, so they are no backends. two replicas on different
+      # nodes keep the load balancer up when one node is down
+      envoyDeployment:
+        replicas: 2
+        pod:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: node.kubernetes.io/exclude-from-external-load-balancers
+                        operator: DoesNotExist
+            # preferred, not required: with two backend nodes, a required
+            # rule blocks the extra pod of a rolling update
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchLabels:
+                        app.kubernetes.io/name: envoy
+                        gateway.envoyproxy.io/owning-gateway-name: envoy

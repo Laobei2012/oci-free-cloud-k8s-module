@@ -3,7 +3,6 @@ extensions:
   - yml
 
 exclude:
-  - "gitops/flux/flux-system/"
   - "**/grafana/dashboards/*.yaml"
 
 doublestar: true

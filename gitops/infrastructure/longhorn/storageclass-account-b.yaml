@@ -1,0 +1,31 @@
+# pool B: replicas only on Longhorn nodes with the tag pool-b, and pods only
+# in the zones of account B. the account B nodes set the tag and the disk
+# label themselves, see terraform/modules/account-b/files/node-init.sh.tftpl
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-account-b
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+# discard tells Longhorn at once which blocks the filesystem deleted
+mountOptions:
+  - discard
+parameters:
+  numberOfReplicas: "2"
+  staleReplicaTimeout: "30"
+  fsType: "ext4"
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"
+  disableRevisionCounter: "true"
+  dataEngine: "v1"
+  backupTargetName: "default"
+  nodeSelector: "pool-b"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - ORD-AD-1
+          - ORD-AD-2
+          - ORD-AD-3

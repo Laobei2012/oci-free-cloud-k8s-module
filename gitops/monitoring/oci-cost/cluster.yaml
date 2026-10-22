@@ -1,0 +1,39 @@
+# The cost and usage data of oci-cost-collector, see
+# https://github.com/Laobei2012/oci-cost-collector. CloudNativePG creates the
+# Secret oci-cost-app with the password and URI of the collector role.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: oci-cost
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  bootstrap:
+    initdb:
+      database: oci_cost
+      owner: collector
+  # Grafana reads the tables with this role.
+  managed:
+    roles:
+      - name: grafana
+        ensure: present
+        login: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: oci-cost-grafana
+  # One year of one account is about 160 MB.
+  # CloudNativePG exports the cost of this month as a metric, see monitoring.yaml.
+  monitoring:
+    customQueriesConfigMap:
+      - name: oci-cost-monitoring
+        key: queries.yaml
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
