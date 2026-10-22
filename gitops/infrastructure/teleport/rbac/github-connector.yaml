@@ -1,0 +1,18 @@
+apiVersion: resources.teleport.dev/v3
+kind: TeleportGithubConnector
+metadata:
+  name: github-acme
+spec:
+  api_endpoint_url: ""
+  client_id: ${teleport_github_client_id}
+  client_secret: "secret://teleport-github-connector/teleport-github-client-secret"
+  display: GitHub
+  endpoint_url: ""
+  redirect_url: https://teleport.${cluster_domain}/v1/webapi/github/callback
+  teams_to_roles:
+    - organization: ${github_org}
+      roles:
+        - editor
+        - admin
+        - auditor
+      team: ${github_team}

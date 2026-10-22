@@ -1,0 +1,36 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  annotations:
+    # The source moves to the public module repo. Without this annotation,
+    # flux-system prunes this Kustomization during the move, and Flux then
+    # deletes its apps. Remove it after the move.
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: oci-cost
+  namespace: flux-system
+spec:
+  interval: 1h
+  timeout: 10m
+  path: ./gitops/monitoring/oci-cost
+  prune: true
+  dependsOn:
+    - name: cloudnative-pg
+    - name: external-secrets
+    - name: longhorn
+    - name: kube-prometheus-stack
+  sourceRef:
+    kind: GitRepository
+    name: platform
+  # the module cluster (modules/grafana) writes oci_tenancy_id and
+  # the module account-b writes oci_tenancy_id_b to these ConfigMaps.
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: oci-billing-exporter-vars
+      - kind: ConfigMap
+        name: oci-billing-exporter-b-vars
+  healthChecks:
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      name: oci-cost
+      namespace: oci-cost

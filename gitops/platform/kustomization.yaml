@@ -1,0 +1,9 @@
+# All shared apps. The Kustomization "platform" in the live repository applies
+# this path from the GitRepository "platform", see examples/gitops.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flux-system
+resources:
+  - ../infrastructure
+  - ../monitoring
+  - ../tools

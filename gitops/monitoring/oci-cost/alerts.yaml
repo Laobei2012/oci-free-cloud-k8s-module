@@ -1,0 +1,35 @@
+# Pages through PagerDuty (severity critical) when the cost of one account in
+# this month is more than 1 in its billing currency (CAD). The account should
+# stay in the free tier, so any real cost needs a look. Flux must not
+# substitute variables here, because the annotations use {{ $labels.x }}.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: oci-cost
+  labels:
+    release: kube-prometheus-stack
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+spec:
+  groups:
+    - name: oci-cost
+      rules:
+        - alert: OCICostAboveLimit
+          expr: cnpg_oci_cost_month_to_date > 1
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: OCI account {{ $labels.account }} cost {{ $value | printf "%.2f" }} {{ $labels.currency }} this month.
+            description: The limit is 1 {{ $labels.currency }}. See the table "Resources with a cost in the time range" on the OCI Cost dashboard in Grafana.
+        # OCICostAboveLimit cannot fire without the metric. It is missing when
+        # the database is down or when the query fails, for example without the
+        # grant that oci-cost-collector makes.
+        - alert: OCICostMetricMissing
+          expr: absent(cnpg_oci_cost_month_to_date)
+          for: 1h
+          labels:
+            severity: warning
+            namespace: oci-cost
+          annotations:
+            summary: The OCI cost metric is missing, so the cost alert cannot fire.
+            description: "Read the errors of the custom query: kubectl -n oci-cost logs oci-cost-1 | grep 'Error collecting user query'"

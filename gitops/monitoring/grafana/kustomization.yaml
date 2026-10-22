@@ -1,0 +1,78 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: grafana
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - secret-oci-cost.yaml
+  - database.yaml
+  - helm.yaml
+  - httproute.yaml
+configMapGenerator:
+  - name: flux-grafana-dashboards
+    files:
+      - dashboards/fluxcd-control-plane.json
+      - dashboards/fluxcd-cluster.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        app.kubernetes.io/part-of: flux
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  - name: bkw-grafana-dashboards
+    files:
+      - dashboards/bkw.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # Dashboard 13032 revision 6 from grafana.com. Longhorn 1.12 exports volume
+  # state and robustness as one series per value with a state label, so the
+  # six queries that compared the value to a number now filter on state.
+  - name: longhorn-grafana-dashboards
+    files:
+      - dashboards/longhorn.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # grafana.com has no Dex dashboard, so this one is in the repository.
+  - name: dex-grafana-dashboards
+    files:
+      - dashboards/dex.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # The logs that Alloy sends to Loki, see gitops/monitoring/loki.
+  - name: loki-grafana-datasource
+    files:
+      - datasources/loki.yaml
+    options:
+      labels:
+        grafana_datasource: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # A Kibana-like view of the Loki logs, with filters and a text search.
+  - name: logs-grafana-dashboards
+    files:
+      - dashboards/logs.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # The oci-cost database of oci-cost-collector, see gitops/monitoring/oci-cost.
+  # Grafana replaces ${OCI_COST_DB_PASSWORD} in this file, not Flux.
+  - name: oci-cost-grafana-datasource
+    files:
+      - datasources/oci-cost.yaml
+    options:
+      labels:
+        grafana_datasource: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  # Cost and usage per hour from the oci-cost database, for account A and B.
+  - name: oci-cost-grafana-dashboards
+    files:
+      - dashboards/oci-cost.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+        kustomize.toolkit.fluxcd.io/substitute: disabled

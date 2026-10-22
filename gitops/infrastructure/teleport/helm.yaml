@@ -1,0 +1,70 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: teleport
+  namespace: teleport
+spec:
+  interval: 5m
+  url: https://charts.releases.teleport.dev
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: teleport-cluster
+  namespace: teleport
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: teleport-cluster
+      version: "18.11.0"
+      sourceRef:
+        kind: HelmRepository
+        name: teleport
+      interval: 5m
+  releaseName: teleport-cluster
+  valuesFrom:
+    - kind: ConfigMap
+      name: oci-lb-sg-id
+      valuesKey: values.yaml
+  values:
+    chartMode: standalone
+    clusterName: teleport.${cluster_domain}
+    kubeClusterName: oci
+    proxyListenerMode: multiplex
+    auth:
+      teleportConfig:
+        auth_service:
+          authentication:
+            type: github
+    authentication:
+      type: github
+      localAuth: true
+      secondFactor: on
+    highAvailability:
+      replicaCount: 1
+      certManager:
+        enabled: true
+        issuerName: letsencrypt
+        issuerKind: ClusterIssuer
+    operator:
+      enabled: true
+    ingress:
+      enabled: false
+    proxy:
+      highAvailability:
+        replicaCount: 1
+      service:
+        type: LoadBalancer
+      annotations:
+        service:
+          external-dns.kubernetes.io/hostname: teleport.${cluster_domain}
+          oci.oraclecloud.com/load-balancer-type: "nlb"
+          #          this does not work; the teleport chart doesn't support tpl
+          #          oci-network-load-balancer.oraclecloud.com/oci-network-security-groups: "{{ tpl .Values.oci.lbsecuritygroup . }}"
+          oci-network-load-balancer.oraclecloud.com/oci-network-security-groups: "${lb_security_group_id}"
+          oci-network-load-balancer.oraclecloud.com/security-list-management-mode: "None"
+    persistence:
+      storageClassName: longhorn
+      volumeSize: 10Gi

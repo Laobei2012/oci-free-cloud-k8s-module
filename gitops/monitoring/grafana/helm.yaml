@@ -1,0 +1,136 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: grafana
+spec:
+  interval: 5m
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: grafana
+spec:
+  interval: 10m
+  timeout: 5m
+  targetNamespace: grafana
+  chart:
+    spec:
+      chart: grafana
+      version: '10.5.15'
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+      interval: 5m
+  releaseName: grafana
+  values:
+    grafana.ini:
+      app_mode: production
+      server:
+        domain: monitoring.${cluster_domain}
+        root_url: https://monitoring.${cluster_domain}
+
+      # The CloudNativePG cluster in database.yaml. The password comes from
+      # GF_DATABASE_PASSWORD.
+      database:
+        type: postgres
+        host: grafana-db-rw.grafana.svc:5432
+        name: grafana
+        user: grafana
+        ssl_mode: require
+
+      users:
+        allow_sign_up: false
+
+      auth:
+        disable_login_form: true
+
+      auth.generic_oauth:
+        enabled: true
+        name: Dex
+        allow_sign_up: true
+        client_id: $__file{/etc/secrets/dex_grafana_client/client-id}
+        client_secret: $__file{/etc/secrets/dex_grafana_client/client-secret}
+        scopes: openid profile email groups
+        ;empty_scopes: false
+        email_attribute_path: email
+        ;id_token_attribute_name:
+        auth_url: https://login.${cluster_domain}/dex/auth
+        token_url: https://login.${cluster_domain}/dex/token
+        api_url: https://login.${cluster_domain}/dex/userinfo
+        role_attribute_path: contains(groups[*], '${github_org}:${github_team}') && 'Admin' || 'Viewer'
+
+    envValueFrom:
+      GF_DATABASE_PASSWORD:
+        secretKeyRef:
+          name: grafana-db-app
+          key: password
+      # The OCI Cost datasource (datasources/oci-cost.yaml) reads this password.
+      OCI_COST_DB_PASSWORD:
+        secretKeyRef:
+          name: oci-cost-db-grafana
+          key: password
+
+    extraSecretMounts:
+      - name: dex-grafana-client
+        secretName: dex-grafana-client
+        defaultMode: 0440
+        mountPath: /etc/secrets/dex_grafana_client
+        readOnly: true
+
+    ingress:
+      enabled: false
+    sidecar:
+      dashboards:
+        enabled: true
+        logLevel: INFO
+        searchNamespace: grafana
+        label: grafana_dashboard
+      datasources:
+        enabled: true
+        searchNamespace: grafana
+
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: grafana-com
+            orgId: 1
+            folder: ""
+            type: file
+            disableDeletion: true
+            editable: false
+            options:
+              path: /var/lib/grafana/dashboards/grafana-com
+    dashboards:
+      grafana-com:
+        jenkins-overview:
+          gnetId: 21628
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: prometheus
+            - name: VAR_JENKINS_URL
+              value: https:\/\/jenkins.${cluster_domain}\/job\/
+        # Envoy Gateway ships these dashboards in its gateway-addons-helm
+        # chart. Keep the tag in the URLs equal to the envoy-gateway version.
+        envoy-gateway-global:
+          url: https://raw.githubusercontent.com/envoyproxy/gateway/v1.9.1/charts/gateway-addons-helm/dashboards/envoy-gateway-global.json
+        envoy-proxy-global:
+          url: https://raw.githubusercontent.com/envoyproxy/gateway/v1.9.1/charts/gateway-addons-helm/dashboards/envoy-proxy-global.json
+        envoy-clusters:
+          url: https://raw.githubusercontent.com/envoyproxy/gateway/v1.9.1/charts/gateway-addons-helm/dashboards/envoy-clusters.json
+        envoy-gateway-resources:
+          url: https://raw.githubusercontent.com/envoyproxy/gateway/v1.9.1/charts/gateway-addons-helm/dashboards/resources-monitor.gen.json
+        # Dashboard 20842 filters on a cluster label that this Prometheus does
+        # not set, so 11001 is used.
+        cert-manager:
+          gnetId: 11001
+          revision: 1
+        # The external-secrets chart ships this dashboard, but it puts the
+        # ConfigMap in its own namespace, where the sidecar does not look.
+        # Keep the tag in the URL equal to the external-secrets version.
+        external-secrets:
+          url: https://raw.githubusercontent.com/external-secrets/external-secrets/v2.10.0/deploy/charts/external-secrets/files/monitoring/grafana-dashboard.json

@@ -1,0 +1,582 @@
+{
+  "title": "OCI Cost",
+  "uid": "oci-cost",
+  "tags": [
+    "oci",
+    "cost"
+  ],
+  "description": "Cost and usage per hour from the OCI cost reports of account A and account B. oci-cost-collector loads the reports into the oci-cost database.",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "1h",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "account",
+        "label": "Account",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "oci-cost"
+        },
+        "query": "SELECT DISTINCT account FROM cost_report ORDER BY 1",
+        "definition": "SELECT DISTINCT account FROM cost_report ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Cost in the time range",
+      "description": "Sum of the cost of all report lines in the time range, in the billing currency of the account. OCI reports the usage of one hour in pieces over about 30 hours, so the newest hours are too low until all pieces arrive.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, account || ' ' || currency_code AS metric, sum(my_cost) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) AND currency_code <> '' GROUP BY 2 ORDER BY 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cost this month",
+      "description": "Sum of the cost from the first day of this month (UTC) to now. It does not change with the time range.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, account || ' ' || currency_code AS metric, sum(my_cost) AS value FROM hourly_usage WHERE hour >= date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AND account IN ($account) AND currency_code <> '' GROUP BY 2 ORDER BY 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Lines in the time range",
+      "description": "Number of report lines with a usage hour in the time range. Each piece of an hour is one line.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, account AS metric, sum(pieces) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) GROUP BY 2 ORDER BY 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Age of the newest report",
+      "description": "Time since OCI created the newest report in the database. OCI writes a report about every two to six hours, and oci-cost-collector loads new reports each hour. Red means more than 12 hours.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT now() AS time, account AS metric, extract(epoch FROM now() - max(created_at)) AS value FROM cost_report WHERE account IN ($account) GROUP BY 2 ORDER BY 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 43200
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Cost per day",
+      "description": "Sum of the cost of each UTC day, in the billing currency of the account. OCI reports the usage of one hour in pieces over about 30 hours, so the newest hours are too low until all pieces arrive.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(hour, '1d'), account AS metric, sum(my_cost) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "A1 OCPU per hour",
+      "description": "Billed quantity of the product Standard - A1, in OCPU hours per usage hour. OCI reports the usage of one hour in pieces over about 30 hours, so the newest hours are too low until all pieces arrive.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT hour AS time, account AS metric, sum(billed_quantity) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) AND product_description = 'Standard - A1' GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "A1 memory per hour",
+      "description": "Billed quantity of the product Standard - A1 - Memory, in GB hours per usage hour. OCI reports the usage of one hour in pieces over about 30 hours, so the newest hours are too low until all pieces arrive.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT hour AS time, account AS metric, sum(billed_quantity) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) AND product_description = 'Standard - A1 - Memory' GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Outbound data transfer per day",
+      "description": "Billed quantity of all Outbound Data Transfer products, including the DRG peering traffic, in GB per UTC day. OCI reports the usage of one hour in pieces over about 30 hours, so the newest hours are too low until all pieces arrive.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(hour, '1d'), account AS metric, sum(billed_quantity) AS value FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) AND product_description LIKE '%Outbound Data Transfer%' GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Products in the time range",
+      "description": "One row per account and product. The quantity is in the unit of the product.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT account AS \"Account\", service AS \"Service\", product_description AS \"Product\", sku_unit_description AS \"Unit\", round(sum(billed_quantity), 3) AS \"Quantity\", round(sum(my_cost), 4) AS \"Cost\", currency_code AS \"Currency\" FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) GROUP BY 1, 2, 3, 4, 7 ORDER BY 6 DESC, 1, 2, 3"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Cost",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Resources with a cost in the time range",
+      "description": "The resources that cost more or less than zero, one row per account, resource and product.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "oci-cost"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "oci-cost"
+          },
+          "refId": "A",
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT account AS \"Account\", compartment_name AS \"Compartment\", service AS \"Service\", product_description AS \"Product\", resource_id AS \"Resource\", round(sum(my_cost), 4) AS \"Cost\", currency_code AS \"Currency\" FROM hourly_usage WHERE $__timeFilter(hour) AND account IN ($account) GROUP BY 1, 2, 3, 4, 5, 7 HAVING sum(my_cost) <> 0 ORDER BY 6 DESC LIMIT 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Cost",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

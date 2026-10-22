@@ -1,0 +1,49 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jenkins
+spec:
+  parentRefs:
+    - name: envoy
+      namespace: envoy-gateway
+  hostnames:
+    - "jenkins.${cluster_domain}"
+  rules:
+    # The prometheus plugin serves metrics without a login. Prometheus
+    # reads them inside the cluster, so the internet gets a 404.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/prometheus"
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: jenkins-not-found
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/"
+      # Envoy ends TLS and sends plain HTTP. Without these headers, Jenkins
+      # takes its address as https://jenkins.${cluster_domain}:80/ and shows
+      # "It appears that your reverse proxy set up is broken".
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Port
+                value: "443"
+      backendRefs:
+        - name: jenkins
+          port: 8080
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: jenkins-not-found
+spec:
+  directResponse:
+    statusCode: 404

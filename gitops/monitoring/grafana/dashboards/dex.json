@@ -1,0 +1,114 @@
+{
+  "title": "Dex",
+  "uid": "dex-overview",
+  "tags": ["dex"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "prometheus"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Pods up",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(up{namespace=\"dex\", job=\"dex\"})" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Version",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^version$/" }, "textMode": "value" },
+      "targets": [
+        { "refId": "A", "expr": "max by (version) (dex_build_info{namespace=\"dex\"})", "format": "table", "instant": true }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Logins in the time range",
+      "description": "Requests to /callback that redirect back to the client.",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(http_requests_total{namespace=\"dex\", handler=\"/callback\", code=~\"3..\"}[$__range]))", "instant": true }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error responses in the time range",
+      "description": "Responses with a 4xx or 5xx code.",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(http_requests_total{namespace=\"dex\", code=~\"4..|5..\"}[$__range]))", "instant": true }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Requests per second by handler",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (handler) (rate(http_requests_total{namespace=\"dex\"}[$__rate_interval]))", "legendFormat": "{{handler}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Requests per second by code",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (code) (rate(http_requests_total{namespace=\"dex\"}[$__rate_interval]))", "legendFormat": "{{code}}" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Latency p95 by handler",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, handler) (rate(request_duration_seconds_bucket{namespace=\"dex\"}[$__rate_interval])))", "legendFormat": "{{handler}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Memory by pod",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        { "refId": "A", "expr": "process_resident_memory_bytes{namespace=\"dex\", job=\"dex\"}", "legendFormat": "{{pod}}" }
+      ]
+    }
+  ]
+}

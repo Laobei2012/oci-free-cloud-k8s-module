@@ -1,0 +1,178 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+spec:
+  interval: 5m
+  url: https://prometheus-community.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  interval: 10m
+  timeout: 5m
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: '91.4.1'
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+      interval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: flux-kube-state-metrics-config
+      valuesKey: kube-state-metrics-config.yaml
+  values:
+    prometheus:
+      ingress:
+        enabled: false
+      prometheusSpec:
+        enableRemoteWriteReceiver: true
+        # Each alert carries the cluster name. vigil-agent routes incidents by it.
+        externalLabels:
+          cluster: oci-phx
+        podMonitorNamespaceSelector: {}
+        podMonitorSelector:
+          matchLabels:
+            app.kubernetes.io/component: monitoring
+        retention: 35d
+        retentionSize: 11GB
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 15Gi
+    kubeApiServer:
+      serviceMonitor:
+        metricRelabelings:
+          # Chart default, kept because this list replaces it.
+          - action: drop
+            regex: (etcd_request|apiserver_request_slo|apiserver_request_sli|apiserver_request)_duration_seconds_bucket;(0\.15|0\.2|0\.3|0\.35|0\.4|0\.45|0\.6|0\.7|0\.8|0\.9|1\.25|1\.5|1\.75|2|3|3\.5|4|4\.5|6|7|8|9|15|20|40|45|50)(\.0)?
+            sourceLabels: [__name__, le]
+          # High-cardinality histograms that no rule or dashboard reads.
+          - action: drop
+            regex: (apiserver_watch_events_dispatch_duration_seconds|etcd_request_duration_seconds|apiserver_storage_list_duration_seconds|apiserver_watch_list_duration_seconds|apiserver_request_duration_seconds|apiserver_watch_cache_read_wait_seconds|apiserver_request_body_size_bytes|apiserver_watch_cache_initialization_duration_seconds|apiserver_watch_events_sizes|apiserver_response_sizes)_bucket
+            sourceLabels: [__name__]
+    defaultRules:
+      create: true
+      rules:
+        alertmanager: true
+        etcd: false
+        configReloaders: true
+        general: true
+        k8s: true
+        kubeApiserverAvailability: true
+        kubeApiserverBurnrate: true
+        kubeApiserverHistogram: true
+        kubeApiserverSlos: true
+        kubeControllerManager: false
+        kubelet: false
+        kubeProxy: false
+        kubePrometheusGeneral: true
+        kubePrometheusNodeRecording: true
+        kubernetesApps: true
+        kubernetesResources: true
+        kubernetesStorage: true
+        kubernetesSystem: false
+        kubeSchedulerAlerting: false
+        kubeStateMetrics: true
+        network: true
+        node: true
+        nodeExporterAlerting: true
+        nodeExporterRecording: true
+        prometheus: true
+        prometheusOperator: true
+    grafana:
+      enabled: false
+      forceDeployDashboards: true
+      namespaceOverride: grafana
+      forceDeployDatasources: true
+    alertmanager:
+      alertmanagerSpec:
+        volumes:
+          - name: slack-webhook
+            secret:
+              secretName: alertmanager-slack-webhook
+          - name: pagerduty
+            secret:
+              secretName: alertmanager-pagerduty
+        volumeMounts:
+          - name: slack-webhook
+            mountPath: /etc/slack-webhook
+            readOnly: true
+          - name: pagerduty
+            mountPath: /etc/pagerduty
+            readOnly: true
+      config:
+        inhibit_rules:
+          - source_matchers:
+              - "alertname = InfoInhibitor"
+            target_matchers:
+              - "severity = info"
+            equal:
+              - "namespace"
+        route:
+          # One group has one alert name. The receivers list each alert of the
+          # group, because CommonAnnotations is empty when the alerts differ.
+          group_by: ["namespace", "alertname"]
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 12h
+          receiver: "slack"
+          routes:
+            - receiver: "null"
+              matchers:
+                - alertname =~ "InfoInhibitor|Watchdog"
+            - receiver: "pagerduty"
+              matchers:
+                - severity = "critical"
+              continue: true
+            - receiver: "slack"
+        receivers:
+          - name: "null"
+          - name: "pagerduty"
+            pagerduty_configs:
+              - send_resolved: true
+                routing_key_file: /etc/pagerduty/routing-key
+                severity: critical
+                # PagerDuty shows each alert of the group in the details.
+                description: "{{ .GroupLabels.alertname }}: {{ (index .Alerts 0).Annotations.summary }}{{ if gt (len .Alerts) 1 }} ({{ len .Alerts }} alerts){{ end }}"
+                client: alertmanager
+                client_url: "https://monitoring.${cluster_domain}/alerting/list?search=state:firing"
+                # The defaults plus the labels that vigil-agent reads through the
+                # PagerDuty API to route an incident. The template data has no
+                # group key: the dedup key of the incident carries it.
+                details:
+                  firing: '{{ template "pagerduty.default.instances" .Alerts.Firing }}'
+                  resolved: '{{ template "pagerduty.default.instances" .Alerts.Resolved }}'
+                  num_firing: '{{ .Alerts.Firing | len }}'
+                  num_resolved: '{{ .Alerts.Resolved | len }}'
+                  cluster: '{{ .CommonLabels.cluster }}'
+                  namespace: '{{ .CommonLabels.namespace }}'
+                  alertname: '{{ .CommonLabels.alertname }}'
+          - name: "slack"
+            slack_configs:
+              - send_resolved: true
+                channel: "#monitoring"
+                username: alertmanager
+                api_url_file: /etc/slack-webhook/url
+                title: ":rotating_light: *{{ .GroupLabels.alertname }}:* {{ if eq (len .Alerts) 1 }}{{ (index .Alerts 0).Annotations.summary }}{{ else }}{{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved{{ end }}"
+                icon_emoji: ":fire:"
+                text: |
+                  *Status:* {{ .Status }}
+                  *Severity:* {{ .CommonLabels.severity }}
+                  {{ range .Alerts -}}
+                  • *{{ .Status }}:* {{ .Annotations.summary }}{{ if .Labels.pod }} (pod {{ .Labels.pod }}){{ end }}
+                    {{ .Annotations.description }}
+                  {{ end -}}
+                  [🔍 View in Grafana](https://monitoring.${cluster_domain}/alerting/list?search=state:firing)

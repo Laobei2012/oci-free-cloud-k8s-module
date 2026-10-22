@@ -1,0 +1,20 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: github
+spec:
+  type: github
+  address: ${github_repo_url}
+  secretRef:
+    name: fluxcd-github-token
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: slack
+spec:
+  type: slack
+  channel: ${flux_slack_channel_id}
+  address: https://slack.com/api/chat.postMessage
+  secretRef:
+    name: fluxcd-slack-webhook

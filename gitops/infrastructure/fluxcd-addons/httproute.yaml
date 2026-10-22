@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: flux-webhook
+spec:
+  parentRefs:
+    - name: envoy
+      namespace: envoy-gateway
+  hostnames:
+    - "flux-webhook.${cluster_domain}"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/"
+      backendRefs:
+        - name: webhook-receiver
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: flux-web
+spec:
+  parentRefs:
+    - name: envoy
+      namespace: envoy-gateway
+  hostnames:
+    - "flux.${cluster_domain}"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/"
+      backendRefs:
+        - name: flux-operator
+          port: 9080

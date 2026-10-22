@@ -1,0 +1,114 @@
+# Alerts for the apps in this repository. kube-prometheus-stack has rules
+# for Kubernetes itself, and its TargetDown alert fires when a scrape fails.
+# The release label lets kube-prometheus-stack find the rules. Flux must not
+# substitute variables here, because the annotations use {{ $labels.x }}.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: apps
+  labels:
+    release: kube-prometheus-stack
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+spec:
+  groups:
+    - name: longhorn
+      rules:
+        # Longhorn exports one series per state, with the value 1 for the
+        # current state.
+        - alert: LonghornVolumeDegraded
+          expr: longhorn_volume_robustness{state="degraded"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn volume {{ $labels.pvc_namespace }}/{{ $labels.pvc }} is degraded.
+            description: The volume {{ $labels.volume }} has fewer healthy replicas than it needs.
+        - alert: LonghornVolumeFaulted
+          expr: longhorn_volume_robustness{state="faulted"} == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn volume {{ $labels.pvc_namespace }}/{{ $labels.pvc }} is faulted.
+            description: The volume {{ $labels.volume }} has no healthy replica. The app cannot read or write it.
+        - alert: LonghornNodeNotReady
+          expr: longhorn_node_status{condition="ready"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn node {{ $labels.node }} is not ready.
+            description: Longhorn cannot put replicas on the node {{ $labels.node }}.
+        - alert: LonghornDiskAlmostFull
+          expr: longhorn_disk_usage_bytes / longhorn_disk_capacity_bytes > 0.85
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn disk on {{ $labels.node }} is {{ $value | humanizePercentage }} full.
+            description: The disk {{ $labels.disk }} on the node {{ $labels.node }} is more than 85% full.
+    - name: flux
+      rules:
+        # kube-state-metrics makes gotk_resource_info from the Flux objects.
+        - alert: FluxResourceNotReady
+          expr: gotk_resource_info{ready="False"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Flux {{ $labels.customresource_kind }} {{ $labels.exported_namespace }}/{{ $labels.name }} is not ready.
+            description: "Run: flux get all -n {{ $labels.exported_namespace }}"
+    - name: cert-manager
+      rules:
+        - alert: CertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="False"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate {{ $labels.exported_namespace }}/{{ $labels.name }} is not ready.
+            description: "Run: kubectl -n {{ $labels.exported_namespace }} describe certificate {{ $labels.name }}"
+        # cert-manager renews a certificate 30 days before it expires. Less
+        # than 14 days left means that the renewal failed.
+        - alert: CertificateExpiresSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 14 * 24 * 3600
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: Certificate {{ $labels.exported_namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}.
+            description: cert-manager did not renew the certificate.
+    - name: external-secrets
+      rules:
+        - alert: ExternalSecretNotReady
+          expr: externalsecret_status_condition{condition="Ready", status="False"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: ExternalSecret {{ $labels.exported_namespace }}/{{ $labels.name }} does not sync.
+            description: "The secret does not get its value from Oracle Vault. Run: kubectl -n {{ $labels.exported_namespace }} describe externalsecret {{ $labels.name }}"
+    - name: envoy
+      rules:
+        # https-10443 is the public listener. A minimum of 0.1 requests per
+        # second stops one error at night from firing the alert.
+        - alert: EnvoyHigh5xxRate
+          expr: |
+            sum(rate(envoy_http_downstream_rq_xx{envoy_http_conn_manager_prefix="https-10443", envoy_response_code_class="5"}[5m]))
+              / sum(rate(envoy_http_downstream_rq_xx{envoy_http_conn_manager_prefix="https-10443"}[5m])) > 0.05
+            and sum(rate(envoy_http_downstream_rq_xx{envoy_http_conn_manager_prefix="https-10443"}[5m])) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy returns 5xx for {{ $value | humanizePercentage }} of the requests.
+            description: Look at the Envoy Clusters dashboard to find the backend.
+    - name: dex
+      rules:
+        - alert: DexServerErrors
+          expr: sum(increase(http_requests_total{namespace="dex", job="dex", code=~"5.."}[15m])) > 2
+          labels:
+            severity: warning
+          annotations:
+            summary: Dex returned {{ $value | humanize }} server errors in 15 minutes.
+            description: Logins to Grafana, Jenkins and the other apps can fail.

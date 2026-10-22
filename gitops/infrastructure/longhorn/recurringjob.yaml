@@ -1,0 +1,14 @@
+# Volumes without a recurring job selector are in the group default.
+# A trim tells Longhorn which blocks the filesystem deleted. Without it,
+# Longhorn keeps every block that the application ever wrote.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: filesystem-trim
+spec:
+  task: filesystem-trim
+  cron: "0 3 * * 0"
+  groups:
+    - default
+  retain: 0
+  concurrency: 1

@@ -1,0 +1,25 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: apex
+  namespace: external-dns
+spec:
+  endpoints:
+    - dnsName: ${cluster_domain}
+      recordTTL: 300
+      recordType: A
+      targets:
+        - ${lb_ip}
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: wildcard
+  namespace: external-dns
+spec:
+  endpoints:
+    - dnsName: "*.${cluster_domain}"
+      recordTTL: 300
+      recordType: A
+      targets:
+        - ${lb_ip}

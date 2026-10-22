@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - external-secrets/flux.yaml
+  - external-dns/flux.yaml
+  - cert-manager/flux.yaml
+  - cert-manager/issuer/flux.yaml
+  - dex/flux.yaml
+  - snapshot-controller/flux.yaml
+  - snapshot-controller/class/flux.yaml
+  - longhorn/flux.yaml
+  - teleport/flux.yaml
+  - metrics-server/flux.yaml
+  - kubelet-csr-approver/flux.yaml
+  - fluxcd-addons/flux.yaml
+  - envoy-gateway/flux.yaml
+  - envoy-gateway/config/flux.yaml
+  - cloudnative-pg/flux.yaml
