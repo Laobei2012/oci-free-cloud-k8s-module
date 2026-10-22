@@ -12,6 +12,7 @@ module "account_b" {
   ssh_public_key               = var.ssh_public_key
   vcn_cidr                     = var.vcn_cidr
   account_a_tenancy_id         = var.account_a_tenancy_id
+  account_a_region             = var.account_a_region
   account_a_group_id           = var.account_a_group_id
   account_a_vcn_cidr           = var.account_a_vcn_cidr
   worker_nodes                 = var.worker_nodes

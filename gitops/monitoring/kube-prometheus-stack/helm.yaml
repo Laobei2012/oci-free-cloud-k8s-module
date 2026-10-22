@@ -37,7 +37,7 @@ spec:
         enableRemoteWriteReceiver: true
         # Each alert carries the cluster name. vigil-agent routes incidents by it.
         externalLabels:
-          cluster: oci-phx
+          cluster: ${cluster_name}
         podMonitorNamespaceSelector: {}
         podMonitorSelector:
           matchLabels:

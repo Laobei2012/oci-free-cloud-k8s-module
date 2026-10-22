@@ -26,7 +26,6 @@ variable "compartment_id" {
 variable "region" {
   description = "Home region of account B"
   type        = string
-  default     = "us-chicago-1"
 }
 
 variable "ssh_public_key" {
@@ -42,6 +41,11 @@ variable "vcn_cidr" {
 
 variable "account_a_tenancy_id" {
   description = "Tenancy OCID of account A, which hosts the OKE cluster"
+  type        = string
+}
+
+variable "account_a_region" {
+  description = "Home region of account A. If it is the same as region, the VCNs peer with local peering gateways, else with remote peering connections"
   type        = string
 }
 

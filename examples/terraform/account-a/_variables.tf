@@ -64,13 +64,18 @@ variable "account_b_tenancy_id" {
 }
 
 variable "account_b_region" {
-  description = "Home region of account B"
+  description = "Home region of account B. If it is the same as region, the VCNs peer with local peering gateways"
   type        = string
-  default     = "us-chicago-1"
 }
 
 variable "account_b_rpc_id" {
   description = "RPC OCID of account B (output rpc_id of terraform/accounts/b). Null until terraform/accounts/b exists"
+  type        = string
+  default     = null
+}
+
+variable "account_b_lpg_id" {
+  description = "LPG OCID of account B (output lpg_id of terraform/accounts/b). Null until terraform/accounts/b exists"
   type        = string
   default     = null
 }
