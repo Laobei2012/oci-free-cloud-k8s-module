@@ -97,6 +97,8 @@ subscription.
 
 ## Set up a live repository
 
+The template repository [oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter) has these stacks, the Flux entry point and a plan and apply CI. Its README has the first-run steps. To set up a live repository by hand, do the steps below.
+
 1. Create a private repository.
 2. In account A, create a bucket for the Terraform states:
    ```
