@@ -95,7 +95,8 @@ NAME         STATUS   ROLES    AGE    VERSION   INTERNAL-IP   OS-IMAGE          
 ```
 
 The Grafana dashboard "OCI Cost" shows the cost of each account. In this
-example, account A cost 0.53 CAD and account B 0.01 CAD in this month.
+example, account A cost 0.53 CAD in this month, because of a block volume
+that was outside the free tier by mistake. A correct setup costs nothing.
 
 ![The Grafana dashboard OCI Cost](docs/oci-cost-dashboard.png)
 
