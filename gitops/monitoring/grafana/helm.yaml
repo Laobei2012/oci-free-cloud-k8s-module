@@ -129,6 +129,12 @@ spec:
         cert-manager:
           gnetId: 11001
           revision: 1
+        cloudnative-pg:
+          gnetId: 20417
+          revision: 4
+          datasource:
+            - name: DS_PROMETHEUS
+              value: prometheus
         # The external-secrets chart ships this dashboard, but it puts the
         # ConfigMap in its own namespace, where the sidecar does not look.
         # Keep the tag in the URL equal to the external-secrets version.
