@@ -16,6 +16,23 @@ notes and the history of Kubernetes upgrades.
 [oci-free-tier]: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
 [upstream]: https://github.com/nce/oci-free-cloud-k8s
 
+Contents:
+
+1. [What the modules make](#what-the-modules-make)
+2. [A running cluster](#a-running-cluster)
+3. [Repository layout](#repository-layout)
+4. [How the two repositories work together](#how-the-two-repositories-work-together)
+5. [Requirements](#requirements)
+6. [Set up a live repository](#set-up-a-live-repository)
+7. [One account or two accounts](#one-account-or-two-accounts)
+8. [Flux and the first apply](#flux-and-the-first-apply)
+9. [Vault secrets](#vault-secrets)
+10. [Add your own apps](#add-your-own-apps)
+11. [Update to a new release](#update-to-a-new-release)
+12. [Test a change before a release](#test-a-change-before-a-release)
+13. [Changes from upstream](#changes-from-upstream)
+14. [License](#license)
+
 ## What the modules make
 
 | Part | Content |
@@ -47,6 +64,40 @@ The cluster in account B is not supported by Oracle. The account B nodes join
 with the kubelet TLS bootstrap and a bootstrap token. An OKE change can stop
 this setup at any time. [README.legacy.md](README.legacy.md#worker-nodes-from-a-second-account)
 explains the setup.
+
+```mermaid
+flowchart LR
+  user([Browser]) -->|HTTPS| lb[Layer 7 load balancer]
+  subgraph A["Account A"]
+    lb --> nodesA
+    oke[OKE control plane]
+    nodesA["2 worker nodes<br/>with envoy-gateway"] --- oke
+  end
+  subgraph B["Account B, optional"]
+    nodesB["2 worker nodes"]
+  end
+  nodesB -->|"VCN peering<br/>LPG or RPC"| oke
+  git[("GitHub<br/>live repository<br/>and this repository")] -->|Flux sync| oke
+```
+
+## A running cluster
+
+This is a cluster with two accounts in one region. The first two nodes are
+the OKE nodes of account A. The other two nodes are in account B.
+
+```
+$ kubectl get nodes -o wide
+NAME         STATUS   ROLES    AGE    VERSION   INTERNAL-IP   OS-IMAGE                  CONTAINER-RUNTIME
+10.0.1.116   Ready    node     6d8h   v1.37.0   10.0.1.116    Oracle Linux Server 9.8   cri-o://1.36.3-48.c6cc2c5b5b6.el9
+10.0.1.36    Ready    node     6d8h   v1.37.0   10.0.1.36     Oracle Linux Server 9.8   cri-o://1.36.3-48.c6cc2c5b5b6.el9
+10.1.1.239   Ready    <none>   6d1h   v1.37.0   10.1.1.239    Oracle Linux Server 9.8   cri-o://1.37.2
+10.1.1.250   Ready    <none>   6d5h   v1.37.0   10.1.1.250    Oracle Linux Server 9.8   cri-o://1.37.2
+```
+
+The Grafana dashboard "OCI Cost" shows the cost of each account. In this
+example, account A cost 0.53 CAD and account B 0.01 CAD in this month.
+
+![The Grafana dashboard OCI Cost](docs/oci-cost-dashboard.png)
 
 ## Repository layout
 
@@ -222,6 +273,21 @@ Jenkins reads its agents and jobs from the optional ConfigMap
 
 Use the same tag in all module sources and in the `GitRepository` `platform`.
 If the tags differ, Terraform and Flux run different versions of the code.
+
+```mermaid
+sequenceDiagram
+  participant M as This repository
+  participant R as Renovate
+  participant L as Live repository
+  participant C as Cluster
+  M->>M: tag a new release
+  R->>L: one pull request for all module sources and the platform tag
+  L->>L: CI plans the Terraform stacks
+  Note over L: you read the plan and comment /apply
+  L->>C: CI applies the stacks, then merges
+  C->>L: Flux syncs main and reads the new tag
+  C->>M: Flux reads gitops/platform at the new tag and applies it
+```
 
 Renovate can update all tags in one pull request. Its terraform manager finds
 the module sources. Its flux manager does not read the tag of a
