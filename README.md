@@ -76,6 +76,12 @@ gitops/clusters/oci      --- Flux ------> gitops/platform
   apps of your own
 ```
 
+You can make the live repository from the template repository
+[oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter).
+Click "Use this template" on GitHub. The copy has the folders on the left and a
+CI, and it uses one release tag of this repository. [Set up a live
+repository](#set-up-a-live-repository) has the steps.
+
 Terraform reads a module with a git source and a `?ref=` tag. Flux reads
 `gitops/platform` with a `GitRepository` that has the same tag. Flux replaces
 each `${name}` in the apps with the value from the ConfigMap `cluster-vars` of
@@ -280,15 +286,15 @@ The structure:
 
 The accounts and the nodes:
 
-1. A second free tier account B adds two worker nodes. Its VCN peers with the
-   VCN of account A, and its nodes join the OKE cluster.
+1. An optional second free tier account B adds two worker nodes. Its VCN
+   peers with the VCN of account A, and its nodes join the OKE cluster.
+   Without account B, the modules make no peering resources.
 2. `kubelet-csr-approver` approves the serving certificates of the account B
    nodes.
-3. Account B is optional. Without it, the modules make no peering resources.
-4. The accounts can use any home region. In the same region, the VCNs peer
+3. The accounts can use any home region. In the same region, the VCNs peer
    with local peering gateways. Else they use remote peering connections.
-5. The node pool of account A works in a region with one availability domain.
-6. The OKE nodes always use Oracle Linux 9.
+4. The node pool of account A works in a region with one availability domain.
+5. The OKE nodes always use Oracle Linux 9.
 
 The CI login:
 
@@ -303,7 +309,9 @@ The new apps:
 1. Jenkins, with Dex login and Prometheus metrics.
 2. Loki and Alloy, for logs, with a Grafana dashboard.
 3. CloudNativePG, for the databases of Grafana and `oci-cost`.
-4. `oci-cost`, which collects the OCI costs of each account each hour. It
+4. `oci-cost`, which runs
+   [oci-cost-collector](https://github.com/Laobei2012/oci-cost-collector) to
+   collect the OCI costs of each account each hour. It
    shows them in Grafana. If an account costs more than 1 in its billing
    currency in one month, it sends an alert.
 5. The CSI snapshot controller, for Longhorn snapshots.
