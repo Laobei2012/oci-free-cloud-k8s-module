@@ -10,6 +10,7 @@ spec:
     - name: external-secrets
     - name: cert-manager
     - name: longhorn
+    - name: prometheus-operator-crds
   sourceRef:
     kind: GitRepository
     name: platform

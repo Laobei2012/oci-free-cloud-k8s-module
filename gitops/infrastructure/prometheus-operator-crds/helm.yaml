@@ -1,0 +1,32 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+spec:
+  interval: 5m
+  url: https://prometheus-community.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus-operator-crds
+spec:
+  interval: 10m
+  timeout: 5m
+  # the chart installs the monitoring.coreos.com CRDs. charts that render a
+  # ServiceMonitor or PodMonitor depend on this release, so they install on a
+  # new cluster before kube-prometheus-stack exists.
+  # keep the app version equal to the operator in kube-prometheus-stack
+  chart:
+    spec:
+      chart: prometheus-operator-crds
+      version: '32.0.1'
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+      interval: 5m
+  values:
+    crds:
+      # an uninstall of the release must not delete every monitor in the cluster
+      annotations:
+        helm.sh/resource-policy: keep

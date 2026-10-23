@@ -8,6 +8,8 @@ spec:
   timeout: 10m
   path: ./gitops/infrastructure/external-secrets
   prune: true
+  dependsOn:
+    - name: prometheus-operator-crds
   sourceRef:
     kind: GitRepository
     name: platform

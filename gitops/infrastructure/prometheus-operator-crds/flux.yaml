@@ -1,0 +1,15 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: prometheus-operator-crds
+  namespace: flux-system
+spec:
+  interval: 1h
+  timeout: 10m
+  path: ./gitops/infrastructure/prometheus-operator-crds
+  prune: true
+  # the release has no workload, so Flux waits for the HelmRelease to be ready
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: platform
