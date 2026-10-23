@@ -85,6 +85,9 @@ spec:
       # false must stay here, because Longhorn keeps the last value of a
       # setting that the chart no longer sets
       removeSnapshotsDuringFilesystemTrim: false
+      # after a Longhorn upgrade, Longhorn moves the volumes to the new engine
+      # live, one volume per node at a time
+      concurrentAutomaticEngineUpgradePerNodeLimit: 1
     persistence:
       defaultClassReplicaCount: 2
     ingress:
