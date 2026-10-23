@@ -99,6 +99,10 @@ example, account A cost 0.53 CAD and account B 0.01 CAD in this month.
 
 ![The Grafana dashboard OCI Cost](docs/oci-cost-dashboard.png)
 
+The Flux Operator web UI shows the state of Flux and its controllers.
+
+![The Flux Operator web UI](docs/fluxcd-dashboard.png)
+
 ## Repository layout
 
 | Path | Content |
