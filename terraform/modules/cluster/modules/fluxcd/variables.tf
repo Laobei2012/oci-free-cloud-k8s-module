@@ -18,6 +18,17 @@ variable "compartment_id" {
   description = "The compartment to create the resources in"
 }
 
+variable "vault_id" {
+  type        = string
+  description = "The OCID of the Vault to store the secrets in"
+}
+
+variable "vault_key_id" {
+  type        = string
+  description = "The OCID of the Vault encryption key to use when creating secrets"
+  default     = null
+}
+
 variable "github_app_id" {
   description = "GitHub App ID"
   type        = string
