@@ -304,8 +304,8 @@ The new apps:
 2. Loki and Alloy, for logs, with a Grafana dashboard.
 3. CloudNativePG, for the databases of Grafana and `oci-cost`.
 4. `oci-cost`, which collects the OCI costs of each account each hour. It
-   shows them in Grafana. It alerts when an account costs more than 1 in its
-   billing currency in one month.
+   shows them in Grafana. If an account costs more than 1 in its billing
+   currency in one month, it sends an alert.
 5. The CSI snapshot controller, for Longhorn snapshots.
 6. The Flux Operator web UI, with Dex login.
 
