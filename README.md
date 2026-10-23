@@ -16,6 +16,23 @@ notes and the history of Kubernetes upgrades.
 [oci-free-tier]: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
 [upstream]: https://github.com/nce/oci-free-cloud-k8s
 
+Contents:
+
+1. [What the modules make](#what-the-modules-make)
+2. [A running cluster](#a-running-cluster)
+3. [Repository layout](#repository-layout)
+4. [How the two repositories work together](#how-the-two-repositories-work-together)
+5. [Requirements](#requirements)
+6. [Set up a live repository](#set-up-a-live-repository)
+7. [One account or two accounts](#one-account-or-two-accounts)
+8. [Flux and the first apply](#flux-and-the-first-apply)
+9. [Vault secrets](#vault-secrets)
+10. [Add your own apps](#add-your-own-apps)
+11. [Update to a new release](#update-to-a-new-release)
+12. [Test a change before a release](#test-a-change-before-a-release)
+13. [Changes from upstream](#changes-from-upstream)
+14. [License](#license)
+
 ## What the modules make
 
 | Part | Content |
@@ -48,6 +65,45 @@ with the kubelet TLS bootstrap and a bootstrap token. An OKE change can stop
 this setup at any time. [README.legacy.md](README.legacy.md#worker-nodes-from-a-second-account)
 explains the setup.
 
+```mermaid
+flowchart LR
+  user([Browser]) -->|HTTPS| lb[Layer 7 load balancer]
+  subgraph A["Account A"]
+    lb --> nodesA
+    oke[OKE control plane]
+    nodesA["2 worker nodes<br/>with envoy-gateway"] --- oke
+  end
+  subgraph B["Account B, optional"]
+    nodesB["2 worker nodes"]
+  end
+  nodesB -->|"VCN peering<br/>LPG or RPC"| oke
+  git[("GitHub<br/>live repository<br/>and this repository")] -->|Flux sync| oke
+```
+
+## A running cluster
+
+This is a cluster with two accounts in one region. The first two nodes are
+the OKE nodes of account A. The other two nodes are in account B.
+
+```
+$ kubectl get nodes -o wide
+NAME         STATUS   ROLES    AGE    VERSION   INTERNAL-IP   OS-IMAGE                  CONTAINER-RUNTIME
+10.0.1.116   Ready    node     6d8h   v1.37.0   10.0.1.116    Oracle Linux Server 9.8   cri-o://1.36.3-48.c6cc2c5b5b6.el9
+10.0.1.36    Ready    node     6d8h   v1.37.0   10.0.1.36     Oracle Linux Server 9.8   cri-o://1.36.3-48.c6cc2c5b5b6.el9
+10.1.1.239   Ready    <none>   6d1h   v1.37.0   10.1.1.239    Oracle Linux Server 9.8   cri-o://1.37.2
+10.1.1.250   Ready    <none>   6d5h   v1.37.0   10.1.1.250    Oracle Linux Server 9.8   cri-o://1.37.2
+```
+
+The Grafana dashboard "OCI Cost" shows the cost of each account. In this
+example, account A cost 0.53 CAD in this month, because of a block volume
+that was outside the free tier by mistake. A correct setup costs nothing.
+
+![The Grafana dashboard OCI Cost](docs/oci-cost-dashboard.png)
+
+The Flux Operator web UI shows the state of Flux and its controllers.
+
+![The Flux Operator web UI](docs/fluxcd-dashboard.png)
+
 ## Repository layout
 
 | Path | Content |
@@ -75,6 +131,12 @@ gitops/clusters/oci      --- Flux ------> gitops/platform
   cluster-vars.yaml        (one tag, for example v0.1.1)
   apps of your own
 ```
+
+You can make the live repository from the template repository
+[oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter).
+Click "Use this template" on GitHub. The copy has the folders on the left and a
+CI, and it uses one release tag of this repository. [Set up a live
+repository](#set-up-a-live-repository) has the steps.
 
 Terraform reads a module with a git source and a `?ref=` tag. Flux reads
 `gitops/platform` with a `GitRepository` that has the same tag. Flux replaces
@@ -217,6 +279,21 @@ Jenkins reads its agents and jobs from the optional ConfigMap
 Use the same tag in all module sources and in the `GitRepository` `platform`.
 If the tags differ, Terraform and Flux run different versions of the code.
 
+```mermaid
+sequenceDiagram
+  participant M as This repository
+  participant R as Renovate
+  participant L as Live repository
+  participant C as Cluster
+  M->>M: tag a new release
+  R->>L: one pull request for all module sources and the platform tag
+  L->>L: CI plans the Terraform stacks
+  Note over L: you read the plan and comment /apply
+  L->>C: CI applies the stacks, then merges
+  C->>L: Flux syncs main and reads the new tag
+  C->>M: Flux reads gitops/platform at the new tag and applies it
+```
+
 Renovate can update all tags in one pull request. Its terraform manager finds
 the module sources. Its flux manager does not read the tag of a
 `GitRepository`, so a regex manager finds it. Add this configuration to
@@ -261,6 +338,82 @@ CI runs on each pull request of this repository. It runs `terraform validate`
 on the modules and the examples. It builds each Kustomization, replaces the
 variables with the example values, and validates the result with kubeconform.
 It also runs gitleaks.
+
+## Changes from upstream
+
+The fork starts at upstream commit [228d056][upstream-base] of 2026-09-21. The
+list shows the main changes after that commit, in this repository and in the
+private live repository that this repository came from.
+
+The structure:
+
+1. The Terraform stacks became the modules `account-a`, `account-b`, `cluster`
+   and `github-oidc`. A live repository calls them at a release tag.
+2. A live repository applies all shared Flux apps with one Kustomization of
+   `gitops/platform`, at the same tag.
+3. The template repository
+   [oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter)
+   is a live repository that you can copy.
+
+The accounts and the nodes:
+
+1. An optional second free tier account B adds two worker nodes. Its VCN
+   peers with the VCN of account A, and its nodes join the OKE cluster.
+   Without account B, the modules make no peering resources.
+2. `kubelet-csr-approver` approves the serving certificates of the account B
+   nodes.
+3. The accounts can use any home region. In the same region, the VCNs peer
+   with local peering gateways. Else they use remote peering connections.
+4. The node pool of account A works in a region with one availability domain.
+5. The OKE nodes always use Oracle Linux 9.
+
+The CI login:
+
+1. The module `github-oidc` lets GitHub Actions log in to OCI with an OIDC
+   token. GitHub stores no OCI API key.
+2. The template repository has the plan and apply CI. It plans each pull
+   request and applies on a `/apply` comment.
+3. In the template repository, the CI plan user can only read in Kubernetes.
+
+The new apps:
+
+1. Jenkins, with Dex login and Prometheus metrics.
+2. Loki and Alloy, for logs, with a Grafana dashboard.
+3. CloudNativePG, for the databases of Grafana and `oci-cost`.
+4. `oci-cost`, which runs
+   [oci-cost-collector](https://github.com/Laobei2012/oci-cost-collector) to
+   collect the OCI costs of each account each hour. It
+   shows them in Grafana. If an account costs more than 1 in its billing
+   currency in one month, it sends an alert.
+5. The CSI snapshot controller, for Longhorn snapshots.
+6. The Flux Operator web UI, with Dex login.
+
+The removed apps are `lychee`, `s3-proxy` and the Grafana OCI metrics plugin.
+
+The monitoring:
+
+1. Jenkins, Longhorn, Envoy, Dex, cert-manager and external-secrets export
+   Prometheus metrics. Grafana has a dashboard for most of them.
+2. Prometheus has alert rules for the apps. Alertmanager sends alerts to Slack,
+   and critical alerts to PagerDuty, grouped by alert name.
+3. Prometheus keeps 35 days of metrics, with a size limit that leaves free
+   disk space.
+
+The changes to the apps:
+
+1. Envoy runs two replicas on different nodes, only on the load balancer
+   backend nodes. It keeps encoded slashes in the request path.
+2. Longhorn mounts new volumes with the discard option and trims the
+   filesystems each week. Account B nodes have their own Longhorn pool.
+3. After a Longhorn upgrade, Longhorn moves the volumes to the new engine
+   automatically.
+4. Teleport retries a failed upgrade, and does not stall.
+5. Flux reads its GitHub and Slack tokens from the OCI vault. Old health
+   checks no longer block a new revision.
+6. The apps read the values of one installation from `cluster-vars`, for
+   example the domain, the zones and the Slack channel.
+
+[upstream-base]: https://github.com/nce/oci-free-cloud-k8s/commit/228d0569d24ab91755b0c69a339c9ca1f6d5c58e
 
 ## License
 
