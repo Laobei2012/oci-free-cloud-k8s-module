@@ -6,6 +6,7 @@ resources:
   - cert-manager/flux.yaml
   - cert-manager/issuer/flux.yaml
   - dex/flux.yaml
+  - prometheus-operator-crds/flux.yaml
   - snapshot-controller/flux.yaml
   - snapshot-controller/class/flux.yaml
   - longhorn/flux.yaml

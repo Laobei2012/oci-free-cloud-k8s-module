@@ -8,6 +8,7 @@ spec:
     - name: envoy-gateway
     - name: cert-manager-issuer
     - name: external-secrets
+    - name: prometheus-operator-crds
   interval: 1h
   path: ./gitops/infrastructure/envoy-gateway/config
   prune: true

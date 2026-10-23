@@ -13,10 +13,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  install:
-    crds: Create
-  upgrade:
-    crds: CreateReplace
   chart:
     spec:
       chart: kube-prometheus-stack
@@ -30,6 +26,9 @@ spec:
       name: flux-kube-state-metrics-config
       valuesKey: kube-state-metrics-config.yaml
   values:
+    # the prometheus-operator-crds release installs the CRDs before this release
+    crds:
+      enabled: false
     prometheus:
       ingress:
         enabled: false

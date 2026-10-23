@@ -11,6 +11,7 @@ spec:
     - name: external-secrets
     - name: envoy-gateway
     - name: longhorn
+    - name: prometheus-operator-crds
   sourceRef:
     kind: GitRepository
     name: platform

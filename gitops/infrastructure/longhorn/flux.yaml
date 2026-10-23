@@ -11,6 +11,7 @@ spec:
   dependsOn:
     - name: external-secrets
     - name: envoy-gateway
+    - name: prometheus-operator-crds
   sourceRef:
     kind: GitRepository
     name: platform
