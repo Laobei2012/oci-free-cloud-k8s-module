@@ -265,54 +265,74 @@ It also runs gitleaks.
 ## Changes from upstream
 
 The fork starts at upstream commit [228d056][upstream-base] of 2026-09-21. The
-list shows the changes after that commit, with the first release tag of each.
+list shows the main changes after that commit, in this repository and in the
+private live repository that this repository came from.
 
 The structure:
 
 1. The Terraform stacks became the modules `account-a`, `account-b`, `cluster`
-   and `github-oidc` under `terraform/modules`. A module has no backend and no
-   provider, so a live repository adds its own. (v0.1.0)
-2. The Flux apps moved from `gitops/core` to `gitops/infrastructure`,
-   `gitops/monitoring` and `gitops/tools`. A live repository applies all of
-   them with one Kustomization of `gitops/platform`. (v0.1.0)
-3. The HelmRelease `jenkins` has no agents and no jobs. It reads them from the
-   optional ConfigMap `jenkins-site-values` of the live repository. (v0.1.0)
-4. `examples/` has a root module for each stack and the Flux entry point of a
-   live repository. (v0.1.0)
-5. A new README replaces the original README, which is now
-   [README.legacy.md](README.legacy.md). (v0.1.1)
+   and `github-oidc`. A live repository calls them at a release tag.
+2. A live repository applies all shared Flux apps with one Kustomization of
+   `gitops/platform`, at the same tag.
+3. The template repository
+   [oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter)
+   is a live repository that you can copy.
 
-The accounts and regions:
+The accounts and the nodes:
 
-1. The modules accept any home region for accounts A and B. Upstream used
-   `us-chicago-1`. (v0.1.5)
-2. If both accounts have the same home region, the VCNs peer with local peering
-   gateways. Else they use remote peering connections, as upstream did. (v0.1.5)
-3. The Flux apps read the zones, the node labels and the cluster name from
-   `cluster-vars`, not from fixed region keys. (v0.1.5)
-4. Account B is optional. Without it, `account-a` makes no peering resources,
-   and the account B apps in `gitops/account-b` are not applied. (v0.1.6)
-5. The node pool of account A works in a region with one availability domain,
-   for example `us-sanjose-1`. (v0.1.6)
+1. A second free tier account B adds two worker nodes. Its VCN peers with the
+   VCN of account A, and its nodes join the OKE cluster.
+2. `kubelet-csr-approver` approves the serving certificates of the account B
+   nodes.
+3. Account B is optional. Without it, the modules make no peering resources.
+4. The accounts can use any home region. In the same region, the VCNs peer
+   with local peering gateways. Else they use remote peering connections.
+5. The node pool of account A works in a region with one availability domain.
+6. The OKE nodes always use Oracle Linux 9.
 
-The apps:
+The CI login:
 
-1. Teleport retries a failed upgrade, and does not stall. (v0.1.2)
-2. Teleport, Longhorn and eight other Helm charts got new versions. (v0.1.3 to
-   v0.1.5)
-3. After a Longhorn upgrade, Longhorn moves the volumes to the new engine, one
-   volume per node at a time. (not released)
+1. The module `github-oidc` lets GitHub Actions log in to OCI with an OIDC
+   token. GitHub stores no OCI API key.
+2. The template repository has the plan and apply CI. It plans each pull
+   request and applies on a `/apply` comment.
+3. In the template repository, the CI plan user can only read in Kubernetes.
 
-The CI and the tests:
+The new apps:
 
-1. CI runs `terraform validate` on the modules and the examples, builds and
-   validates each Kustomization with kubeconform, and runs gitleaks. (v0.1.0)
-2. A `terraform test` with mock providers covers the three peering modes of
-   `account-a`. (v0.1.6)
+1. Jenkins, with Dex login and Prometheus metrics.
+2. Loki and Alloy, for logs, with a Grafana dashboard.
+3. CloudNativePG, for the databases of Grafana and `oci-cost`.
+4. `oci-cost`, which collects the OCI costs of each account each hour. It
+   shows them in Grafana. It alerts when an account costs more than 1 in its
+   billing currency in one month.
+5. The CSI snapshot controller, for Longhorn snapshots.
+6. The Flux Operator web UI, with Dex login.
 
-The template repository
-[oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter)
-is new. It is a live repository with its own CI, ready to copy.
+The removed apps are `lychee`, `s3-proxy` and the Grafana OCI metrics plugin.
+
+The monitoring:
+
+1. Jenkins, Longhorn, Envoy, Dex, cert-manager and external-secrets export
+   Prometheus metrics. Grafana has a dashboard for most of them.
+2. Prometheus has alert rules for the apps. Alertmanager sends alerts to Slack,
+   and critical alerts to PagerDuty, grouped by alert name.
+3. Prometheus keeps 35 days of metrics, with a size limit that leaves free
+   disk space.
+
+The changes to the apps:
+
+1. Envoy runs two replicas on different nodes, only on the load balancer
+   backend nodes. It keeps encoded slashes in the request path.
+2. Longhorn mounts new volumes with the discard option and trims the
+   filesystems each week. Account B nodes have their own Longhorn pool.
+3. After a Longhorn upgrade, Longhorn moves the volumes to the new engine
+   automatically.
+4. Teleport retries a failed upgrade, and does not stall.
+5. Flux reads its GitHub and Slack tokens from the OCI vault. Old health
+   checks no longer block a new revision.
+6. The apps read the values of one installation from `cluster-vars`, for
+   example the domain, the zones and the Slack channel.
 
 [upstream-base]: https://github.com/nce/oci-free-cloud-k8s/commit/228d0569d24ab91755b0c69a339c9ca1f6d5c58e
 
