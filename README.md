@@ -262,6 +262,60 @@ on the modules and the examples. It builds each Kustomization, replaces the
 variables with the example values, and validates the result with kubeconform.
 It also runs gitleaks.
 
+## Changes from upstream
+
+The fork starts at upstream commit [228d056][upstream-base] of 2026-09-21. The
+list shows the changes after that commit, with the first release tag of each.
+
+The structure:
+
+1. The Terraform stacks became the modules `account-a`, `account-b`, `cluster`
+   and `github-oidc` under `terraform/modules`. A module has no backend and no
+   provider, so a live repository adds its own. (v0.1.0)
+2. The Flux apps moved from `gitops/core` to `gitops/infrastructure`,
+   `gitops/monitoring` and `gitops/tools`. A live repository applies all of
+   them with one Kustomization of `gitops/platform`. (v0.1.0)
+3. The HelmRelease `jenkins` has no agents and no jobs. It reads them from the
+   optional ConfigMap `jenkins-site-values` of the live repository. (v0.1.0)
+4. `examples/` has a root module for each stack and the Flux entry point of a
+   live repository. (v0.1.0)
+5. A new README replaces the original README, which is now
+   [README.legacy.md](README.legacy.md). (v0.1.1)
+
+The accounts and regions:
+
+1. The modules accept any home region for accounts A and B. Upstream used
+   `us-chicago-1`. (v0.1.5)
+2. If both accounts have the same home region, the VCNs peer with local peering
+   gateways. Else they use remote peering connections, as upstream did. (v0.1.5)
+3. The Flux apps read the zones, the node labels and the cluster name from
+   `cluster-vars`, not from fixed region keys. (v0.1.5)
+4. Account B is optional. Without it, `account-a` makes no peering resources,
+   and the account B apps in `gitops/account-b` are not applied. (v0.1.6)
+5. The node pool of account A works in a region with one availability domain,
+   for example `us-sanjose-1`. (v0.1.6)
+
+The apps:
+
+1. Teleport retries a failed upgrade, and does not stall. (v0.1.2)
+2. Teleport, Longhorn and eight other Helm charts got new versions. (v0.1.3 to
+   v0.1.5)
+3. After a Longhorn upgrade, Longhorn moves the volumes to the new engine, one
+   volume per node at a time. (not released)
+
+The CI and the tests:
+
+1. CI runs `terraform validate` on the modules and the examples, builds and
+   validates each Kustomization with kubeconform, and runs gitleaks. (v0.1.0)
+2. A `terraform test` with mock providers covers the three peering modes of
+   `account-a`. (v0.1.6)
+
+The template repository
+[oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter)
+is new. It is a live repository with its own CI, ready to copy.
+
+[upstream-base]: https://github.com/nce/oci-free-cloud-k8s/commit/228d0569d24ab91755b0c69a339c9ca1f6d5c58e
+
 ## License
 
 This repository and the upstream repository have no LICENSE file.
