@@ -36,3 +36,8 @@ spec:
         memory: 128Mi
       limits:
         memory: 256Mi
+    # Prometheus selects PodMonitors by this label.
+    monitoring:
+      podMonitorEnabled: true
+      podMonitorAdditionalLabels:
+        app.kubernetes.io/component: monitoring
