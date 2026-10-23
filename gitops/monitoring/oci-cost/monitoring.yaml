@@ -54,5 +54,7 @@ spec:
       cnpg.io/cluster: oci-cost
       cnpg.io/podRole: instance
   podMetricsEndpoints:
+    # The CloudNativePG dashboard uses rate() over 5m, which needs more than
+    # one sample in 5 minutes. Each scrape also runs the oci_cost query.
     - port: metrics
-      interval: 5m
+      interval: 1m
