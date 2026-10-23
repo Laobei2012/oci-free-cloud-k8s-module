@@ -97,6 +97,22 @@ subscription.
 
 ## Set up a live repository
 
+You can start from the template repository, or you can copy the examples by hand. Use the template repository, unless you already have a repository with its own CI.
+
+### From the template repository
+
+The template repository [oci-free-cloud-k8s-starter](https://github.com/Laobei2012/oci-free-cloud-k8s-starter) has these parts:
+
+1. The Terraform stacks of account A, account B and the cluster.
+2. The GitHub OIDC login of each account.
+3. The Flux entry point and `cluster-vars.yaml`.
+4. A CI that plans each pull request and applies on `/apply`.
+5. Renovate, which bumps the module tag in Terraform and in Flux together.
+
+Click "Use this template" on GitHub, then do the first-run steps in its README.
+
+### By hand
+
 1. Create a private repository.
 2. In account A, create a bucket for the Terraform states:
    ```
