@@ -7,8 +7,15 @@ resource "random_password" "webhook_secret" {
   special = false
 }
 
+# The oracle-vault ClusterSecretStore reads from var.vault_id, so the token
+# must be in that vault and not in the first vault of the compartment.
 data "oci_kms_vaults" "existing_vault" {
   compartment_id = var.compartment_id
+
+  filter {
+    name   = "id"
+    values = [var.vault_id]
+  }
 }
 
 data "oci_kms_keys" "existing_key" {
@@ -19,9 +26,9 @@ data "oci_kms_keys" "existing_key" {
 resource "oci_vault_secret" "test_secret" {
   #Required
   compartment_id = var.compartment_id
-  key_id         = data.oci_kms_keys.existing_key.keys[0].id
+  key_id         = coalesce(var.vault_key_id, data.oci_kms_keys.existing_key.keys[0].id)
   secret_name    = "github-flux-webhook-token"
-  vault_id       = data.oci_kms_vaults.existing_vault.vaults[0].id
+  vault_id       = var.vault_id
 
   secret_content {
     name         = "token"
