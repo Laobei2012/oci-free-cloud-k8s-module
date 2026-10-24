@@ -49,9 +49,10 @@ variable "github_app_pem" {
 }
 
 variable "flux_version" {
-  description = "Flux version semver range"
+  description = "Flux version or semver range"
   type        = string
-  default     = "2.x"
+  # Preserve the deployed distribution while applying memory reservations.
+  default = "2.9.6"
 }
 
 variable "flux_registry" {
