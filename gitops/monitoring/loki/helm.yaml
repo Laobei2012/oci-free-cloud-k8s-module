@@ -23,6 +23,12 @@ spec:
       interval: 5m
   releaseName: loki
   values:
+    sidecar:
+      resources:
+        requests:
+          memory: 96Mi
+        limits:
+          memory: 256Mi
     # one pod runs all Loki components. the chunks and the index stay on a
     # Longhorn volume, not in object storage
     deploymentMode: SingleBinary
