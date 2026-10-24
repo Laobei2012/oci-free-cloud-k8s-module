@@ -22,3 +22,9 @@ spec:
         name: metrics-server
       interval: 5m
   releaseName: metrics-server
+  values:
+    resources:
+      requests:
+        memory: 64Mi
+      limits:
+        memory: 128Mi

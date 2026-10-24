@@ -23,6 +23,23 @@ spec:
       interval: 5m
   releaseName: cert-manager
   values:
+    resources:
+      requests:
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    cainjector:
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+    webhook:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
     installCRDs: true
     # The release label lets kube-prometheus-stack find the monitor.
     prometheus:

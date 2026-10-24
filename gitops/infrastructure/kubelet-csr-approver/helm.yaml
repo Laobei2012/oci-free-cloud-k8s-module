@@ -23,6 +23,11 @@ spec:
       interval: 5m
   releaseName: kubelet-csr-approver
   values:
+    resources:
+      requests:
+        memory: 32Mi
+      limits:
+        memory: 128Mi
     # approves the kubelet serving certificates of the account B nodes, see
     # terraform/modules/account-b. the node names are their private IPs in 10.1.1.0/24.
     # the approver does not compare the IP in a request with the IP of the
