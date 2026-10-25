@@ -17,6 +17,12 @@ spec:
       interval: 5m
   releaseName: alloy
   values:
+    configReloader:
+      resources:
+        requests:
+          memory: 32Mi
+        limits:
+          memory: 64Mi
     # one Alloy pod on each node reads the container logs of its own node
     # from /var/log/pods and sends them to Loki
     controller:

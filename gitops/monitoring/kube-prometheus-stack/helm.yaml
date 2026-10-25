@@ -26,6 +26,24 @@ spec:
       name: flux-kube-state-metrics-config
       valuesKey: kube-state-metrics-config.yaml
   values:
+    prometheusOperator:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 192Mi
+    kube-state-metrics:
+      resources:
+        requests:
+          memory: 192Mi
+        limits:
+          memory: 512Mi
+    prometheus-node-exporter:
+      resources:
+        requests:
+          memory: 32Mi
+        limits:
+          memory: 64Mi
     # the prometheus-operator-crds release installs the CRDs before this release
     crds:
       enabled: false

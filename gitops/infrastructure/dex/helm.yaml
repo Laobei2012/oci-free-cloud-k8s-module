@@ -26,6 +26,11 @@ spec:
       interval: 5m
   releaseName: dex
   values:
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 256Mi
     envFrom:
       - secretRef:
           name: dex-github-connector
