@@ -109,7 +109,7 @@ With the bucket created we can configure the `~/.oci/config`:
 user=ocid1.user.xxx
 fingerprint=ee:f4:xxx
 tenancy=ocid1.tenancy.oc1.xxx
-region=us-phoenix-1
+region=us-ashburn-1
 key_file=/Users/xxxx.pem
 
 [default]
@@ -155,7 +155,7 @@ by the `infra`-run or have to be extracted from the webui.
 ## Worker nodes from a second account
 A second free tier account (account B) adds 2 more `VM.Standard.A1.Flex`
 worker nodes to the cluster. Account A hosts the OKE cluster in
-`us-phoenix-1`. Account B runs the nodes in its home region `us-chicago-1`.
+`us-ashburn-1`. Account B runs the nodes in its home region `us-sanjose-1`.
 Terraform in `terraform/accounts/b` of the live repository manages account B,
 with the module [account-b](terraform/modules/account-b/).
 
@@ -202,7 +202,7 @@ Prerequisites:
 * The `DEFAULT` profile is account A, which holds the state bucket.
 * The OCID of the account A group that runs terraform, for example
   `Administrators`.
-* Account A is subscribed to the region `us-chicago-1`. The requestor of a
+* Account A is subscribed to the region `us-sanjose-1`. The requestor of a
   remote peering must be subscribed to the region of the acceptor. You
   cannot remove a region subscription again.
 
@@ -244,7 +244,7 @@ The nodes start in step 4, but they can only join after step 6. Until then,
 the kubelet tries to connect again.
 
 If `account_b_peering_status` is `INVALID`, make sure that account A is
-subscribed to `us-chicago-1`. Then run this command in `terraform/accounts/a`:
+subscribed to `us-sanjose-1`. Then run this command in `terraform/accounts/a`:
 ```
 ❯ terraform apply -replace=oci_core_remote_peering_connection.account_b
 ```

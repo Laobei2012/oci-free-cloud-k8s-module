@@ -1,5 +1,5 @@
 # Pages through PagerDuty (severity critical) when the cost of one account in
-# this month is more than 1 in its billing currency (CAD). The account should
+# this month is more than 1 in its billing currency. The account should
 # stay in the free tier, so any real cost needs a look. Flux must not
 # substitute variables here, because the annotations use {{ $labels.x }}.
 apiVersion: monitoring.coreos.com/v1

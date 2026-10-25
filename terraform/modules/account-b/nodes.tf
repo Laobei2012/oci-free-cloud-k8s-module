@@ -2,9 +2,9 @@ locals {
   k8s_version = var.k8s_version
   # e.g. v1.36.4 -> v1.36
   k8s_minor = join(".", slice(split(".", local.k8s_version), 0, 2))
-  # OKE labels its nodes with the region key, e.g. phx and PHX-AD-1
+  # OKE labels its nodes with the region key, e.g. iad and IAD-AD-1
   region_key = one([for r in data.oci_identity_regions.all.regions : r.key if r.name == var.region])
-  # in the same region as account A, the zones get a -B suffix, e.g. PHX-B-AD-1.
+  # in the same region as account A, the zones get a -B suffix, e.g. IAD-B-AD-1.
   # Longhorn keeps the volumes of each account in its zones, see gitops/infrastructure/longhorn
   zone_prefix = local.same_region ? "${local.region_key}-B" : local.region_key
 }

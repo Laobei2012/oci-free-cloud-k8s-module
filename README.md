@@ -82,7 +82,7 @@ flowchart LR
 
 ## A running cluster
 
-This is a cluster with two accounts in one region. The first two nodes are
+This is an example cluster with two accounts in one region. The first two nodes are
 the OKE nodes of account A. The other two nodes are in account B.
 
 ```
@@ -95,7 +95,7 @@ NAME         STATUS   ROLES    AGE    VERSION   INTERNAL-IP   OS-IMAGE          
 ```
 
 The Grafana dashboard "OCI Cost" shows the cost of each account. In this
-example, account A cost 0.53 CAD in this month, because of a block volume
+example, account A cost 0.53 in this month, because of a block volume
 that was outside the free tier by mistake. A correct setup costs nothing.
 
 ![The Grafana dashboard OCI Cost](docs/oci-cost-dashboard.png)
@@ -224,7 +224,7 @@ The stacks `accounts/a` and `accounts/b` also output `zone_prefix`. Set these
 values as `oci_zone_prefix_a` and `oci_zone_prefix_b` in `cluster-vars.yaml`.
 Longhorn uses the zones to keep the volumes of each account on its own nodes.
 If the two regions are the same, the account B zones get the suffix `-B`, for
-example `PHX-B-AD-1`.
+example `IAD-B-AD-1`.
 
 With account B, you can also move Loki to the account B nodes. Set
 `loki_node_label: tenancy`, `loki_node_value: account-b` and
