@@ -40,6 +40,11 @@ spec:
     kubeClusterName: oci
     proxyListenerMode: multiplex
     auth:
+      resources:
+        requests:
+          memory: 384Mi
+        limits:
+          memory: 1024Mi
       teleportConfig:
         auth_service:
           authentication:
