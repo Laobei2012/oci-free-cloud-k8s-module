@@ -3,15 +3,15 @@ mock_provider "oci" {
     target = data.oci_identity_regions.all
     values = {
       regions = [
-        { key = "PHX", name = "us-phoenix-1" },
-        { key = "ORD", name = "us-chicago-1" },
+        { key = "IAD", name = "us-ashburn-1" },
+        { key = "SJC", name = "us-sanjose-1" },
       ]
     }
   }
   override_data {
     target = data.oci_identity_availability_domains.ads
     values = {
-      availability_domains = [{ name = "xyz:PHX-AD-1" }, { name = "xyz:PHX-AD-2" }, { name = "xyz:PHX-AD-3" }]
+      availability_domains = [{ name = "xyz:IAD-AD-1" }, { name = "xyz:IAD-AD-2" }, { name = "xyz:IAD-AD-3" }]
     }
   }
   override_data {
@@ -53,7 +53,7 @@ variables {
   kubeconfig_path              = "kubeconfig"
   compartment_id               = "ocid1.tenancy.oc1..a"
   tenancy_id                   = "ocid1.tenancy.oc1..a"
-  region                       = "us-phoenix-1"
+  region                       = "us-ashburn-1"
   ssh_public_key               = "ssh-ed25519 AAAA"
   node_memory_in_gbs           = 12
   node_ocpus                   = 2
@@ -79,7 +79,7 @@ run "no_account_b" {
   }
 
   assert {
-    condition     = output.zone_prefix == "PHX"
+    condition     = output.zone_prefix == "IAD"
     error_message = "zone_prefix must be the region key."
   }
 }
@@ -89,7 +89,7 @@ run "same_region" {
 
   variables {
     account_b_tenancy_id = "ocid1.tenancy.oc1..b"
-    account_b_region     = "us-phoenix-1"
+    account_b_region     = "us-ashburn-1"
   }
 
   assert {
@@ -113,7 +113,7 @@ run "other_region" {
 
   variables {
     account_b_tenancy_id = "ocid1.tenancy.oc1..b"
-    account_b_region     = "us-chicago-1"
+    account_b_region     = "us-sanjose-1"
   }
 
   assert {
