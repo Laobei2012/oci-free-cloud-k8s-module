@@ -74,24 +74,20 @@ spec:
                             memory: 32Mi
                           limits:
                             memory: 64Mi
+          # the post-upgrade check reads the first container of this
+          # DaemonSet. a merge patch by name moves the pre-pull container to
+          # the front and the check never ends, so this patch uses an index
           - target:
               kind: DaemonSet
               name: longhorn-manager
             patch: |
-              apiVersion: apps/v1
-              kind: DaemonSet
-              metadata:
-                name: longhorn-manager
-              spec:
-                template:
-                  spec:
-                    containers:
-                      - name: pre-pull-share-manager-image
-                        resources:
-                          requests:
-                            memory: 16Mi
-                          limits:
-                            memory: 32Mi
+              - op: add
+                path: /spec/template/spec/containers/1/resources
+                value:
+                  requests:
+                    memory: 16Mi
+                  limits:
+                    memory: 32Mi
           - target:
               kind: ConfigMap
               name: longhorn-storageclass
