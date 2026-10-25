@@ -31,6 +31,12 @@ spec:
     crds: CreateReplace
   values:
     installCRDs: true
+    controller:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
     # Helm maps every object of a release before it creates the CRDs, so a
     # VolumeSnapshotClass in this release fails on a new cluster. the class
     # is in ./class, which Flux applies after this release is healthy

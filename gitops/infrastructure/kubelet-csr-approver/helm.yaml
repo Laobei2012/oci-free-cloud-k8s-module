@@ -35,3 +35,8 @@ spec:
     # requests that do not match stay pending for a manual decision
     skipDenyStep: true
     replicas: 1
+    resources:
+      requests:
+        memory: 32Mi
+      limits:
+        memory: 128Mi
