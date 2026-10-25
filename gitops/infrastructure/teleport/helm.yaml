@@ -64,6 +64,11 @@ spec:
     ingress:
       enabled: false
     proxy:
+      resources:
+        requests:
+          memory: 320Mi
+        limits:
+          memory: 768Mi
       highAvailability:
         replicaCount: 1
       service:
@@ -79,3 +84,28 @@ spec:
     persistence:
       storageClassName: longhorn
       volumeSize: 10Gi
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              group: apps
+              version: v1
+              kind: Deployment
+              name: teleport-cluster-proxy
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: teleport-cluster-proxy
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: wait-auth-update
+                        resources:
+                          requests:
+                            cpu: null
+                            memory: 64Mi
+                          limits:
+                            cpu: null
+                            memory: 128Mi
