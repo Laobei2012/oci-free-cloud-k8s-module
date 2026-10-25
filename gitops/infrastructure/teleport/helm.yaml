@@ -66,6 +66,11 @@ spec:
     proxy:
       highAvailability:
         replicaCount: 1
+      resources:
+        requests:
+          memory: 320Mi
+        limits:
+          memory: 768Mi
       service:
         type: LoadBalancer
       annotations:
