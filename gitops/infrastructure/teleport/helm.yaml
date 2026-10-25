@@ -56,6 +56,11 @@ spec:
         issuerKind: ClusterIssuer
     operator:
       enabled: true
+      resources:
+        requests:
+          memory: 160Mi
+        limits:
+          memory: 384Mi
     ingress:
       enabled: false
     proxy:
