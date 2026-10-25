@@ -66,6 +66,12 @@ spec:
           memory: 512Mi
         limits:
           memory: 1536Mi
+    sidecar:
+      resources:
+        requests:
+          memory: 96Mi
+        limits:
+          memory: 256Mi
     # Grafana sends queries to the loki Service on port 3100. a single binary
     # needs no nginx gateway
     gateway:

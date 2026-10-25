@@ -21,6 +21,12 @@ spec:
     # from /var/log/pods and sends them to Loki
     controller:
       type: daemonset
+    configReloader:
+      resources:
+        requests:
+          memory: 32Mi
+        limits:
+          memory: 64Mi
     alloy:
       mounts:
         varlog: true

@@ -30,6 +30,23 @@ spec:
       interval: 5m
   releaseName: external-secrets
   values:
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    certController:
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+    webhook:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
     # The chart has no metrics service by default. The release label lets
     # kube-prometheus-stack find the monitor.
     metrics:

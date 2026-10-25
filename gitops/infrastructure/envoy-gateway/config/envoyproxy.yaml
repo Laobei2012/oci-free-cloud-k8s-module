@@ -19,6 +19,28 @@ spec:
       # nodes keep the load balancer up when one node is down
       envoyDeployment:
         replicas: 2
+        container:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+        # the shutdown-manager container has no field of its own. the merge
+        # keeps the CPU request the controller sets
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: shutdown-manager
+                      resources:
+                        requests:
+                          memory: 96Mi
+                        limits:
+                          memory: 128Mi
         pod:
           affinity:
             nodeAffinity:

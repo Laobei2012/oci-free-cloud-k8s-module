@@ -29,6 +29,11 @@ spec:
     provider:
       name: cloudflare
     policy: sync
+    resources:
+      requests:
+        memory: 96Mi
+      limits:
+        memory: 192Mi
     sources:
       - service
       - ingress

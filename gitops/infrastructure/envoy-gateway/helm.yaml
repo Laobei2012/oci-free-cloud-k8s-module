@@ -23,3 +23,11 @@ spec:
         name: envoy
       interval: 5m
   releaseName: envoy-gateway
+  values:
+    deployment:
+      envoyGateway:
+        resources:
+          requests:
+            memory: 160Mi
+          limits:
+            memory: 512Mi

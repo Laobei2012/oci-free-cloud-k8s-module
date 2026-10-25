@@ -111,6 +111,24 @@ spec:
         nodeExporterRecording: true
         prometheus: true
         prometheusOperator: true
+    kube-state-metrics:
+      resources:
+        requests:
+          memory: 192Mi
+        limits:
+          memory: 512Mi
+    prometheusOperator:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 192Mi
+    prometheus-node-exporter:
+      resources:
+        requests:
+          memory: 32Mi
+        limits:
+          memory: 64Mi
     grafana:
       enabled: false
       forceDeployDashboards: true
@@ -118,6 +136,25 @@ spec:
       forceDeployDatasources: true
     alertmanager:
       alertmanagerSpec:
+        resources:
+          requests:
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        containers:
+          - name: config-reloader
+            resources:
+              requests:
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+        initContainers:
+          - name: init-config-reloader
+            resources:
+              requests:
+                memory: 64Mi
+              limits:
+                memory: 128Mi
         volumes:
           - name: slack-webhook
             secret:

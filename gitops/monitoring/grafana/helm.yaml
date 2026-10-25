@@ -26,6 +26,17 @@ spec:
       interval: 5m
   releaseName: grafana
   values:
+    resources:
+      requests:
+        memory: 512Mi
+      limits:
+        memory: 1024Mi
+    downloadDashboards:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
     grafana.ini:
       app_mode: production
       server:
@@ -83,6 +94,12 @@ spec:
     ingress:
       enabled: false
     sidecar:
+      # one block for both sidecars. the chart has no field per sidecar
+      resources:
+        requests:
+          memory: 96Mi
+        limits:
+          memory: 256Mi
       dashboards:
         enabled: true
         logLevel: INFO
