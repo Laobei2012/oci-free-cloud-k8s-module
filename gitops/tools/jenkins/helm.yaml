@@ -48,6 +48,8 @@ spec:
         - oic-auth:4.731.v4932b_506e767
         - matrix-auth:3.3
         - prometheus:860.v532442b_44e9a_
+        # Active Choices: a job parameter whose choices come from a Groovy script.
+        - uno-choice:2.8.11
       # The chart does not install the prometheus plugin, so it is in the list
       # above. The release label lets kube-prometheus-stack find the monitor.
       prometheus:
