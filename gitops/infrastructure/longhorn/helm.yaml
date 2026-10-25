@@ -65,10 +65,93 @@ spec:
                             - ${oci_zone_prefix_a}-AD-1
                             - ${oci_zone_prefix_a}-AD-2
                             - ${oci_zone_prefix_a}-AD-3
+          - target:
+              kind: DaemonSet
+              name: longhorn-manager
+            patch: |
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: longhorn-manager
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: longhorn-manager
+                      - name: pre-pull-share-manager-image
+                        resources:
+                          requests:
+                            memory: 16Mi
+                          limits:
+                            memory: 32Mi
+          - target:
+              kind: Deployment
+              name: longhorn-driver-deployer
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: longhorn-driver-deployer
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: wait-longhorn-manager
+                        resources:
+                          requests:
+                            memory: 32Mi
+                          limits:
+                            memory: 64Mi
+                    containers:
+                      - name: longhorn-driver-deployer
+                        resources:
+                          requests:
+                            memory: 32Mi
+                          limits:
+                            memory: 64Mi
+          - target:
+              kind: Deployment
+              name: longhorn-ui
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: longhorn-ui
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: longhorn-ui
+                        resources:
+                          requests:
+                            memory: 32Mi
+                          limits:
+                            memory: 64Mi
   values:
     global:
       imageRegistry: docker.io
+    longhornManager:
+      resources:
+        requests:
+          memory: 384Mi
+        limits:
+          memory: 768Mi
+    longhornGlobalManager:
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
     defaultSettings:
+      # This setting accepts ResourceRequirements for controller-managed CSI pods.
+      systemManagedCSIComponentsResourceLimits: >-
+        {"csi-attacher":{"requests":{"memory":"64Mi"},"limits":{"memory":"128Mi"}},
+         "csi-provisioner":{"requests":{"memory":"64Mi"},"limits":{"memory":"128Mi"}},
+         "csi-resizer":{"requests":{"memory":"64Mi"},"limits":{"memory":"128Mi"}},
+         "csi-snapshotter":{"requests":{"memory":"64Mi"},"limits":{"memory":"128Mi"}},
+         "longhorn-csi-plugin":{"requests":{"memory":"64Mi"},"limits":{"memory":"128Mi"}},
+         "node-driver-registrar":{"requests":{"memory":"32Mi"},"limits":{"memory":"64Mi"}},
+         "longhorn-liveness-probe":{"requests":{"memory":"32Mi"},"limits":{"memory":"64Mi"}}}
       # volumes without a node selector cannot use nodes with a Longhorn tag.
       # the account B nodes get the tag pool-b, the OKE nodes have no tag
       allowEmptyNodeSelectorVolume: false
