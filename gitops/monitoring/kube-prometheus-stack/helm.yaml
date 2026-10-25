@@ -33,6 +33,26 @@ spec:
       ingress:
         enabled: false
       prometheusSpec:
+        resources:
+          requests:
+            memory: 1536Mi
+          limits:
+            memory: 6Gi
+        # Keep these local to Prometheus so Alertmanager can roll separately.
+        containers:
+          - name: config-reloader
+            resources:
+              requests:
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+        initContainers:
+          - name: init-config-reloader
+            resources:
+              requests:
+                memory: 64Mi
+              limits:
+                memory: 128Mi
         enableRemoteWriteReceiver: true
         # Each alert carries the cluster name. vigil-agent routes incidents by it.
         externalLabels:

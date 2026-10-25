@@ -10,6 +10,7 @@ resource "helm_release" "flux_operator" {
   namespace  = kubernetes_namespace.flux_system.id
   repository = "oci://ghcr.io/controlplaneio-fluxcd/charts"
   chart      = "flux-operator"
+  version    = "0.61.0"
   wait       = true
 
   // The flux-addons Kustomization creates this Secret with the Web UI login configuration.
@@ -17,6 +18,9 @@ resource "helm_release" "flux_operator" {
 web:
   enabled: true
   configSecretName: flux-web-config
+resources:
+  requests:
+    memory: 256Mi
 YAML
   ]
 }
@@ -48,6 +52,7 @@ resource "helm_release" "flux_instance" {
   namespace  = kubernetes_namespace.flux_system.id
   repository = "oci://ghcr.io/controlplaneio-fluxcd/charts"
   chart      = "flux-instance"
+  version    = "0.61.0"
 
   values = [<<YAML
 instance:
@@ -80,6 +85,54 @@ instance:
           - op: add
             path: /spec/template/spec/containers/0/args/-
             value: --feature-gates=CancelHealthCheckOnNewRevision=true
+      - target:
+          kind: Deployment
+          name: helm-controller
+        patch: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: helm-controller
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: manager
+                    resources:
+                      requests:
+                        memory: 256Mi
+      - target:
+          kind: Deployment
+          name: source-controller
+        patch: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: source-controller
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: manager
+                    resources:
+                      requests:
+                        memory: 256Mi
+      - target:
+          kind: Deployment
+          name: kustomize-controller
+        patch: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kustomize-controller
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: manager
+                    resources:
+                      requests:
+                        memory: 192Mi
 YAML
   ]
 }
