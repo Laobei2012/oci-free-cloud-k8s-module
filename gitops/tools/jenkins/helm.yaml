@@ -33,6 +33,13 @@ spec:
       optional: true
   values:
     controller:
+      sidecars:
+        configAutoReload:
+          resources:
+            requests:
+              memory: 128Mi
+            limits:
+              memory: 256Mi
       jenkinsUrl: https://jenkins.${cluster_domain}
       resources:
         requests:
