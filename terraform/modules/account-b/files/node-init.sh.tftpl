@@ -11,7 +11,10 @@ systemctl disable --now firewalld || true
 setenforce 0 || true
 sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 
+# the kubelet does not start with swap on. the image lists /.swapfile in
+# /etc/fstab, so remove the entry, or swap comes back at the next boot
 swapoff -a
+sed -i '/^[^#].*[[:space:]]swap[[:space:]]/ s/^/#/' /etc/fstab
 
 cat >/etc/modules-load.d/k8s.conf <<EOF
 overlay
