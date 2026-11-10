@@ -1,5 +1,7 @@
 githubConfigSecret: gha-github
 runnerScaleSetName: oci-arm64
+scaleSetLabels:
+  - oci-arm64
 minRunners: 0
 maxRunners: 2
 controllerServiceAccount:

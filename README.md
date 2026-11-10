@@ -303,7 +303,9 @@ Personal accounts need one scale set per repository. For additional sets,
 create HelmReleases of `gha-runner-scale-set` in `arc-runners`, referencing the
 same `gha-runners` HelmRepository and the `gha-runner-values` ConfigMap through
 `valuesFrom` (`valuesKey: values.yaml`). Set each release's `githubConfigUrl`
-to its repository URL. Each repository can use the same `oci-arm64` label.
+to its repository URL and give each release a unique `runnerScaleSetName`.
+The shared `scaleSetLabels` lets every repository use `runs-on: oci-arm64`
+without colliding with another set's Kubernetes resource names.
 Organization accounts can use one organization scale set, with a runner group
 limited to private repositories. New private repositories need explicit
 enrollment when using repository scale sets.
