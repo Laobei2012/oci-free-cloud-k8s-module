@@ -274,6 +274,40 @@ Jenkins reads its agents and jobs from the optional ConfigMap
 `configScripts` in its key `values.yaml`. Give the ConfigMap the label
 `reconcile.fluxcd.io/watch: Enabled`, so that a change starts a Helm upgrade.
 
+### Optional GitHub Actions runners
+
+`gitops/tools/github-actions` installs Actions Runner Controller (ARC) and one
+runner scale set. It is opt-in: add a Flux Kustomization for this path, with
+`sourceRef.name: platform`. Patch the generated `gha-controller` and
+`gha-runners` Kustomizations if your module GitRepository has another name.
+The existing `gitops/platform` entry point does not install ARC.
+
+Set `gha_github_config_url` in `cluster-vars` to a repository or organization
+URL. Create an OCI Vault secret named `gha-github-token`, containing a classic
+GitHub PAT with `repo` access for a private repository, or `admin:org` for
+organization runners. Set `gha_github_token_secret` to use another Vault secret.
+External Secrets writes the token to `gha-github` in `arc-runners`; no token
+belongs in Git. A GitHub App can instead supply the existing Secret keys
+`github_app_id`, `github_app_installation_id`, and `github_app_private_key`;
+replace the PAT ExternalSecret when using an App.
+
+Use `runs-on: oci-arm64` in a workflow. Each ephemeral runner handles one job.
+The scale set keeps zero idle runners and starts at most two concurrent
+runners. The controller and listener stay running. This scales pods on the
+existing ARM64 nodes, not the OCI node pool. The runner image supports shell
+and JavaScript actions; Docker builds, container actions, and service containers
+need a separately configured container mode. Tools such as Terraform and Flux
+must be installed by the workflow.
+
+Personal accounts need one scale set per repository. For additional sets,
+create HelmReleases of `gha-runner-scale-set` in `arc-runners`, referencing the
+same `gha-runners` HelmRepository and the `gha-runner-values` ConfigMap through
+`valuesFrom` (`valuesKey: values.yaml`). Set each release's `githubConfigUrl`
+to its repository URL. Each repository can use the same `oci-arm64` label.
+Organization accounts can use one organization scale set, with a runner group
+limited to private repositories. New private repositories need explicit
+enrollment when using repository scale sets.
+
 ## Update to a new release
 
 Use the same tag in all module sources and in the `GitRepository` `platform`.
